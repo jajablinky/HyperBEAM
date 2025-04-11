@@ -101,13 +101,12 @@ init() ->
     Old = erlang:system_flag(backtrace_depth, hb_opts:get(debug_stack_depth)),
     ?event({old_system_stack_depth, Old}),
     ok.
-
 %% @doc Start a mainnet server without payments.
 start_mainnet() ->
     start_mainnet(hb_opts:get(port)).
 start_mainnet(Port) when is_integer(Port) ->
     start_mainnet(#{ port => Port });
-start_mainnet(Opts) ->
+start_mainnet(Opts) when is_map(Opts) ->
     application:ensure_all_started([
         kernel,
         stdlib,
@@ -120,7 +119,8 @@ start_mainnet(Opts) ->
     ]),
     Wallet = hb:wallet(hb_opts:get(priv_key_location, no_viable_wallet_path, Opts)),
     BaseOpts = hb_http_server:set_default_opts(Opts),
-    hb_http_server:start_node(
+	?event(hb, {explicit, BaseOpts}),
+	hb_http_server:start_node(
         FinalOpts =
             BaseOpts#{
                 store => #{ <<"store-module">> => hb_store_fs, <<"prefix">> => <<"cache-mainnet">> },
@@ -135,9 +135,9 @@ start_mainnet(Opts) ->
     io:format(
         "Started mainnet node at http://localhost:~p~n"
         "Operator: ~s~n",
-        [maps:get(port, Opts), Address]
+        [ maps:get(port, BaseOpts), Address]
     ),
-    <<"http://localhost:", (integer_to_binary(maps:get(port, Opts)))/binary>>.
+    <<"http://localhost:", (integer_to_binary(maps:get(port, BaseOpts)))/binary>>.
 
 %%% @doc Start a server with a `simple-pay@1.0' pre-processor.
 start_simple_pay() ->
