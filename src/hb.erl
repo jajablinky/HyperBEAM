@@ -105,6 +105,7 @@ init() ->
 start_mainnet() ->
     start_mainnet(hb_opts:get(port)).
 start_mainnet(Port) when is_integer(Port) ->
+start_mainnet(Port) when is_integer(Port) ->
     start_mainnet(#{ port => Port });
 start_mainnet(Opts) when is_map(Opts) ->
     application:ensure_all_started([
