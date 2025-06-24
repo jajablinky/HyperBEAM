@@ -220,7 +220,7 @@ theme:
     - content.code.copy
     - content.code.select
     - content.code.annotate
-    # - navigation.footer
+    - navigation.footer
   palette:
     # Palette toggle for automatic mode
     - media: "(prefers-color-scheme)"
@@ -246,6 +246,7 @@ extra_css:
   - assets/stylesheets/style.css
 
 extra_javascript:
+  - js/doc-selector.js
   - js/color-toggle.js
   - js/utc-time.js
   - js/custom-header.js
