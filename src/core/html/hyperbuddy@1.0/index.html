@@ -21,15 +21,70 @@
 			</div>
 			<form id="command-form" class="command-form" autocomplete="off">
 				<div id="autocomplete" class="autocomplete" role="listbox" hidden></div>
+				<div id="section-nav" class="section-nav" hidden>
+					<button
+						type="button"
+						id="section-prev"
+						class="section-nav-btn"
+						aria-label="Previous command section"
+					>
+						Back
+					</button>
+					<span id="section-indicator" class="section-nav-indicator" aria-live="polite"></span>
+					<button
+						type="button"
+						id="section-next"
+						class="section-nav-btn"
+						aria-label="Next command section"
+					>
+						Next
+					</button>
+				</div>
 				<div id="command-shell" class="command-shell">
-					<div id="inspect-layer" class="inspect-layer" aria-hidden="true"></div>
-					<textarea
-						id="command-input"
-						class="command-input"
-						rows="1"
-						spellcheck="false"
-						aria-label="HyperPATH command"
-					></textarea>
+					<div class="command-shell-body">
+						<div id="inspect-layer" class="inspect-layer" aria-hidden="true"></div>
+						<textarea
+							id="command-input"
+							class="command-input"
+							rows="1"
+							spellcheck="false"
+							aria-label="HyperPATH command"
+						></textarea>
+					</div>
+					<button
+						type="submit"
+						id="command-submit"
+						class="command-submit"
+						aria-label="Run command"
+						disabled
+					>
+						<svg
+							class="command-submit-icon"
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 256 256"
+							aria-hidden="true"
+						>
+							<line
+								x1="64"
+								y1="192"
+								x2="192"
+								y2="64"
+								fill="none"
+								stroke="currentColor"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="24"
+							/>
+							<polyline
+								points="88 64 192 64 192 168"
+								fill="none"
+								stroke="currentColor"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="24"
+							/>
+						</svg>
+					</button>
 				</div>
 			</form>
 		</main>

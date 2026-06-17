@@ -1963,6 +1963,94 @@ Prism.languages.markup={comment:{pattern:/<!--(?:(?!<!--)[\s\S])*?-->/,greedy:!0
 	];
 	const DEVICE_ROOT_KEYS = ['info', 'keys', 'format', 'metrics', 'events'];
 
+const PRELOADED_DEVICES = [
+		'ans104@1.0',
+		'apply@1.0',
+		'arweave@1.0',
+		'arweave_block_cache@1.0',
+		'arweave_offset@1.0',
+		'auth_hook@1.0',
+		'b32_name@1.0',
+		'blacklist@1.0',
+		'bundler@1.0',
+		'bundler_cache@1.0',
+		'bundler_recovery@1.0',
+		'bundler_task@1.0',
+		'cache@1.0',
+		'cacheviz@1.0',
+		'cookie@1.0',
+		'cookie_auth@1.0',
+		'cookie_test_vectors@1.0',
+		'copycat@1.0',
+		'copycat_arweave@1.0',
+		'copycat_graphql@1.0',
+		'cron@1.0',
+		'dedup@1.0',
+		'delegated_compute@1.0',
+		'faff@1.0',
+		'flat@1.0',
+		'genesis_wasm@1.0',
+		'gzip@1.0',
+		'http_auth@1.0',
+		'httpsig@1.0',
+		'httpsig_conv@1.0',
+		'httpsig_keyid@1.0',
+		'httpsig_proxy@1.0',
+		'httpsig_siginfo@1.0',
+		'hyperbuddy@1.0',
+		'json@1.0',
+		'json_iface@1.0',
+		'local_name@1.0',
+		'location@1.0',
+		'location_cache@1.0',
+		'lua@1.0',
+		'lua_lib@1.0',
+		'lua_test@1.0',
+		'lua_test_ledgers@1.0',
+		'manifest@1.0',
+		'match@1.0',
+		'message@1.0',
+		'meta@1.0',
+		'metering@1.0',
+		'multipass@1.0',
+		'name@1.0',
+		'node_process@1.0',
+		'p4@1.0',
+		'patch@1.0',
+		'process@1.0',
+		'process_cache@1.0',
+		'process_worker@1.0',
+		'profile@1.0',
+		'push@1.0',
+		'query@1.0',
+		'query_arweave@1.0',
+		'query_graphql@1.0',
+		'query_test_vectors@1.0',
+		'rate_limit@1.0',
+		'recorder@1.0',
+		'relay@1.0',
+		'router@1.0',
+		'scheduler@1.0',
+		'scheduler_cache@1.0',
+		'scheduler_formats@1.0',
+		'scheduler_registry@1.0',
+		'scheduler_server@1.0',
+		'secret@1.0',
+		'simple_pay@1.0',
+		'stack@1.0',
+		'structured@1.0',
+		'test@1.0',
+		'trie@1.0',
+		'trie_props@1.0',
+		'tx@1.0',
+		'tx_from@1.0',
+		'tx_to@1.0',
+		'wasi@1.0',
+		'wasm@1.0',
+		'whois@1.0',
+];
+
+
 	const typeFallbacks = {
 		curl: { label: 'curl', description: 'HTTP client command.' },
 		url: { label: 'URL', description: 'Network address for resolution.' },
@@ -2213,6 +2301,125 @@ Prism.languages.markup={comment:{pattern:/<!--(?:(?!<!--)[\s\S])*?-->/,greedy:!0
 		return tokens;
 	}
 
+	function splitPathIntoTraversalSteps(pathToken) {
+		const parts = [];
+		const text = pathToken.text;
+		let offset = pathToken.start;
+		let pos = 0;
+
+		const deviceMatch = text.match(/^(\/~[\w.-]+@\d+\.\d+)/);
+		if (deviceMatch) {
+			parts.push({
+				text: deviceMatch[1],
+				start: offset,
+				end: offset + deviceMatch[1].length,
+			});
+			pos = deviceMatch[1].length;
+		} else if (text.startsWith('/')) {
+			const keyMatch = text.match(/^(\/[^/]+)/);
+			if (keyMatch) {
+				parts.push({
+					text: keyMatch[1],
+					start: offset,
+					end: offset + keyMatch[1].length,
+				});
+				pos = keyMatch[1].length;
+			}
+		}
+
+		while (pos < text.length) {
+			const rest = text.slice(pos);
+			const keyMatch = rest.match(/^(\/[^/]+)/);
+			if (!keyMatch) break;
+			parts.push({
+				text: keyMatch[1],
+				start: offset + pos,
+				end: offset + pos + keyMatch[1].length,
+			});
+			pos += keyMatch[1].length;
+		}
+
+		return parts.length ? parts : [pathToken];
+	}
+
+	function getTraversalSections(commandText) {
+		const tokens = parseCommandTokens(commandText);
+		if (!tokens.length) return [];
+
+		const sections = [tokens[0]];
+		let index = 1;
+
+		function pushSlice(start, end) {
+			sections.push({
+				text: commandText.slice(start, end),
+				start: start,
+				end: end,
+			});
+		}
+
+		while (index < tokens.length) {
+			const token = tokens[index];
+
+			if (token.text === '/' && index + 1 < tokens.length) {
+				const next = tokens[index + 1];
+				if (
+					next.text.startsWith('~') ||
+					(next.text !== '/' &&
+						next.text !== '&' &&
+						next.text !== '=' &&
+						next.type !== 'operator')
+				) {
+					pushSlice(token.start, next.end);
+					index += 2;
+					continue;
+				}
+			}
+
+			if (token.text === '&') {
+				let end = token.end;
+				let cursor = index + 1;
+				while (cursor < tokens.length) {
+					const part = tokens[cursor];
+					if (part.text === '/' || part.text === '&') break;
+					end = part.end;
+					cursor += 1;
+				}
+				pushSlice(token.start, end);
+				index = cursor;
+				continue;
+			}
+
+			if (token.type === 'path' || (token.text.startsWith('/') && token.text.length > 1)) {
+				splitPathIntoTraversalSteps(token).forEach(function (step) {
+					sections.push(step);
+				});
+				index += 1;
+				continue;
+			}
+
+			if (token.text.startsWith('~') && token.text.includes('@')) {
+				sections.push(token);
+				index += 1;
+				continue;
+			}
+
+			sections.push(token);
+			index += 1;
+		}
+
+		return sections;
+	}
+
+	function getCommandSections(commandText) {
+		return getTraversalSections(commandText);
+	}
+
+	function findSectionIndexForStart(sections, start) {
+		return sections.findIndex(function (section) {
+			return section.start === start;
+		});
+	}
+
 	function extractHyperPath(command) {
 		const trimmed = command.trim();
 		if (!trimmed) return null;
@@ -2342,10 +2549,18 @@ Prism.languages.markup={comment:{pattern:/<!--(?:(?!<!--)[\s\S])*?-->/,greedy:!0
 	const trailEl = document.getElementById('trail');
 	const viewportEl = document.getElementById('app-viewport');
 	const autocompleteEl = document.getElementById('autocomplete');
+	const submitBtn = document.getElementById('command-submit');
+	const sectionNavEl = document.getElementById('section-nav');
+	const sectionPrevBtn = document.getElementById('section-prev');
+	const sectionNextBtn = document.getElementById('section-next');
+	const sectionIndicatorEl = document.getElementById('section-indicator');
 
 	let command = DEFAULT_COMMAND;
 	let isFocused = false;
 	let hoveredToken = null;
+	let activeSectionIndex = -1;
+	let traversalFullCommand = '';
+	let traversalDepth = -1;
 	let running = false;
 	let trail = readTrail();
 	let highlightedId = null;
@@ -2354,9 +2569,40 @@ Prism.languages.markup={comment:{pattern:/<!--(?:(?!<!--)[\s\S])*?-->/,greedy:!0
 	let autocompleteItems = [];
 	let autocompleteIndex = -1;
 	let keysCache = new Map();
+	let deviceCatalogCache = null;
+
+	async function getDeviceCatalog() {
+		if (deviceCatalogCache) return deviceCatalogCache;
+
+		try {
+			const response = await fetch('/~meta@1.0/info/preloaded-devices-index~message@1.0/keys', {
+				headers: { Accept: 'application/json' },
+			});
+			if (response.ok) {
+				const data = await response.json();
+				const names = Object.values(data).filter(function (value) {
+					return typeof value === 'string' && /@\d+\.\d+$/.test(value);
+				});
+				if (names.length > 0) {
+					deviceCatalogCache = names.sort();
+					return deviceCatalogCache;
+				}
+			}
+		} catch {
+			// fall back to bundled catalog
+		}
+
+		deviceCatalogCache = PRELOADED_DEVICES.slice();
+		return deviceCatalogCache;
+	}
 
 	input.value = command;
 	input.placeholder = DEFAULT_COMMAND;
+
+	function updateSubmitButton() {
+		if (!submitBtn) return;
+		submitBtn.disabled = running || !command.trim();
+	}
 
 	function scrollCurrentEntryToCenter(force) {
 		if (!viewportEl) return;
@@ -2384,6 +2630,20 @@ Prism.languages.markup={comment:{pattern:/<!--(?:(?!<!--)[\s\S])*?-->/,greedy:!0
 		const rowCenter = rowRect.top + rowRect.height / 2;
 		const viewportCenter = viewportRect.top + viewportRect.height / 2;
 		return Math.abs(rowCenter - viewportCenter) < 72;
+	}
+
+	function getDeviceCompletionContext(text, cursor) {
+		const before = text.slice(0, cursor);
+		const match = before.match(/(?:^|[\s/&])(~[\w@.-]*)$/);
+		if (!match) return null;
+
+		const partial = match[1];
+		return {
+			replaceStart: before.length - partial.length,
+			replaceEnd: cursor,
+			prefix: partial.slice(1),
+			partial: partial,
+		};
 	}
 
 	function getCompletionContext(text, cursor) {
@@ -2468,6 +2728,7 @@ Prism.languages.markup={comment:{pattern:/<!--(?:(?!<!--)[\s\S])*?-->/,greedy:!0
 	async function buildSuggestions(text, cursor) {
 		const before = text.slice(0, cursor);
 		const after = text.slice(cursor);
+		const deviceCtx = getDeviceCompletionContext(text, cursor);
 		const ctx = getCompletionContext(text, cursor);
 		const suggestions = [];
 		const seen = new Set();
@@ -2477,6 +2738,21 @@ Prism.languages.markup={comment:{pattern:/<!--(?:(?!<!--)[\s\S])*?-->/,greedy:!0
 			if (!insertText || seen.has(value) || value === text) return;
 			seen.add(value);
 			suggestions.push({ value: value, label: label || insertText, detail: detail || '' });
+		}
+
+		if (deviceCtx) {
+			const catalog = await getDeviceCatalog();
+			catalog.forEach(function (deviceName) {
+				if (
+					deviceCtx.prefix &&
+					!deviceName.toLowerCase().startsWith(deviceCtx.prefix.toLowerCase())
+				) {
+					return;
+				}
+				const binding = '~' + deviceName;
+				add(deviceCtx.replaceStart, cursor, binding, binding, 'device');
+			});
+			return suggestions;
 		}
 
 		STATIC_COMMANDS.forEach(function (cmd) {
@@ -2521,12 +2797,17 @@ Prism.languages.markup={comment:{pattern:/<!--(?:(?!<!--)[\s\S])*?-->/,greedy:!0
 		if (!autocompleteEl) return;
 		autocompleteEl.hidden = true;
 		autocompleteEl.innerHTML = '';
+		autocompleteEl.classList.remove('is-device-list');
 	}
 
 	function renderAutocomplete(items) {
 		autocompleteItems = items;
 		if (!autocompleteEl) return;
 		autocompleteEl.innerHTML = '';
+		autocompleteEl.classList.toggle(
+			'is-device-list',
+			items.length > 0 && items[0].detail === 'device',
+		);
 
 		if (!items.length || !isFocused) {
 			hideAutocomplete();
@@ -2603,16 +2884,134 @@ Prism.languages.markup={comment:{pattern:/<!--(?:(?!<!--)[\s\S])*?-->/,greedy:!0
 		const start = Number(segment.getAttribute('data-token-start'));
 		if (Number.isNaN(start)) return null;
 
-		return parseCommandTokens(command).find(function (token) {
+		return getCommandSections(command).find(function (token) {
 			return token.start === start;
 		}) || null;
 	}
 
+	function syncTraversalState(commandText, depth) {
+		traversalFullCommand = commandText;
+		const sections = getTraversalSections(commandText);
+		if (typeof depth === 'number') {
+			traversalDepth = Math.max(-1, Math.min(depth, sections.length - 1));
+		} else {
+			traversalDepth = sections.length > 0 ? sections.length - 1 : -1;
+		}
+		activeSectionIndex = traversalDepth;
+	}
+
+	function getMinTraversalDepth(fullCommand, sections) {
+		for (let i = 0; i < sections.length; i++) {
+			const candidate = fullCommand.slice(0, sections[i].end).trim();
+			if (extractHyperPath(candidate)) return i;
+		}
+		return 0;
+	}
+
+	function updateSectionNav() {
+		const fullCommand = traversalFullCommand || command;
+		const sections = getTraversalSections(fullCommand);
+		const hasSections = sections.length > 1;
+		const minDepth = getMinTraversalDepth(fullCommand, sections);
+
+		if (!sectionNavEl) return;
+
+		sectionNavEl.hidden = !hasSections;
+		if (!hasSections) return;
+
+		if (sectionPrevBtn) {
+			sectionPrevBtn.disabled = traversalDepth <= minDepth || running;
+		}
+		if (sectionNextBtn) {
+			sectionNextBtn.disabled = traversalDepth >= sections.length - 1 || running;
+		}
+
+		if (sectionIndicatorEl) {
+			if (traversalDepth >= 0) {
+				sectionIndicatorEl.textContent =
+					String(traversalDepth + 1) + ' / ' + String(sections.length);
+			} else {
+				sectionIndicatorEl.textContent = String(sections.length) + ' sections';
+			}
+		}
+	}
+
+	function focusSection(section, index) {
+		if (!section) return;
+
+		activeSectionIndex = index;
+		traversalDepth = index;
+		hoveredToken = null;
+		input.focus();
+		input.setSelectionRange(section.start, section.end);
+		renderInspectLayer();
+		updateSectionNav();
+	}
+
+	async function stepTraversal(delta) {
+		if (running) return;
+
+		if (!traversalFullCommand) {
+			syncTraversalState(command);
+		}
+
+		const sections = getTraversalSections(traversalFullCommand);
+		if (sections.length <= 1) return;
+
+		const maxDepth = sections.length - 1;
+		const nextDepth = traversalDepth + delta;
+		if (nextDepth < 0 || nextDepth > maxDepth) return;
+
+		traversalDepth = nextDepth;
+		activeSectionIndex = nextDepth;
+		const nextCommand = traversalFullCommand.slice(0, sections[nextDepth].end).trim();
+		await submitCommand(nextCommand, { traversalStep: true });
+	}
+
+	function syncActiveSectionFromSelection() {
+		const sections = getCommandSections(command);
+		if (!sections.length) {
+			activeSectionIndex = -1;
+			return;
+		}
+
+		const cursor = input.selectionStart ?? command.length;
+		const anchor = input.selectionEnd ?? cursor;
+		const selectionStart = Math.min(cursor, anchor);
+		const selectionEnd = Math.max(cursor, anchor);
+
+		const matchedIndex = sections.findIndex(function (section) {
+			return selectionStart >= section.start && selectionEnd <= section.end;
+		});
+
+		activeSectionIndex = matchedIndex;
+		if (matchedIndex >= 0) {
+			traversalDepth = matchedIndex;
+		}
+	}
+
+	function getHighlightedSection(tokens) {
+		if (hoveredToken) {
+			return hoveredToken;
+		}
+
+		const depth = traversalDepth >= 0 ? traversalDepth : activeSectionIndex;
+		if (depth >= 0 && depth < tokens.length) {
+			return tokens[depth];
+		}
+
+		return null;
+	}
+
 	function renderInspectLayer() {
-		const hasValue = Boolean(command.trim());
-		const tokens = parseCommandTokens(command);
+		const fullCommand = traversalFullCommand || command;
+		const hasValue = Boolean(fullCommand.trim());
+		const sections = getCommandSections(fullCommand);
 		const inspectInteractive = hasValue && !isFocused;
 		const inspectVisible = hasValue;
+		const highlightedSection = getHighlightedSection(sections);
+		const showInactive =
+			traversalDepth >= 0 && sections.length > 1 && traversalDepth < sections.length - 1;
 
 		inspectLayer.classList.toggle('is-visible', inspectVisible);
 		inspectLayer.classList.toggle('is-interactive', inspectInteractive);
@@ -2622,21 +3021,26 @@ Prism.languages.markup={comment:{pattern:/<!--(?:(?!<!--)[\s\S])*?-->/,greedy:!0
 		if (!hasValue) {
 			inspectLayer.innerHTML = '';
 			resizeInput();
+			updateSubmitButton();
+			updateSectionNav();
 			return;
 		}
 
 		const segments = document.createElement('div');
 		segments.className = 'inspect-segments';
 
-		tokens.forEach(function (token, index) {
+		sections.forEach(function (token, index) {
 			const gapBefore =
 				index === 0
-					? command.slice(0, token.start)
-					: command.slice(tokens[index - 1].end, token.start);
+					? fullCommand.slice(0, token.start)
+					: fullCommand.slice(sections[index - 1].end, token.start);
 
 			if (gapBefore) {
 				const gap = document.createElement('span');
 				gap.className = 'inspect-gap';
+				if (showInactive && index > traversalDepth) {
+					gap.classList.add('is-inactive');
+				}
 				gap.textContent = gapBefore;
 				segments.appendChild(gap);
 			}
@@ -2644,23 +3048,12 @@ Prism.languages.markup={comment:{pattern:/<!--(?:(?!<!--)[\s\S])*?-->/,greedy:!0
 			const wrap = document.createElement('span');
 			wrap.className = 'inspect-segment-wrap';
 
-			if (hoveredToken && hoveredToken.start === token.start) {
-				const tooltip = document.createElement('div');
-				tooltip.className = 'segment-tooltip';
-				const label = document.createElement('strong');
-				label.className = 'tooltip-label';
-				label.textContent = hoveredToken.label;
-				const text = document.createElement('p');
-				text.className = 'tooltip-text';
-				text.textContent = hoveredToken.description;
-				tooltip.appendChild(label);
-				tooltip.appendChild(text);
-				wrap.appendChild(tooltip);
-			}
-
 			const segment = document.createElement('span');
 			segment.className = 'inspect-segment';
-			if (hoveredToken && hoveredToken.start === token.start) {
+			if (showInactive && index > traversalDepth) {
+				segment.classList.add('is-inactive');
+			}
+			if (highlightedSection && highlightedSection.start === token.start) {
 				segment.classList.add('is-active');
 			}
 			segment.setAttribute('data-token-start', String(token.start));
@@ -2674,14 +3067,27 @@ Prism.languages.markup={comment:{pattern:/<!--(?:(?!<!--)[\s\S])*?-->/,greedy:!0
 			segments.appendChild(wrap);
 		});
 
+		const trailing = sections.length
+			? fullCommand.slice(sections[sections.length - 1].end)
+			: fullCommand;
+		if (trailing) {
+			const gap = document.createElement('span');
+			gap.className = 'inspect-gap is-inactive';
+			gap.textContent = trailing;
+			segments.appendChild(gap);
+		}
+
 		inspectLayer.innerHTML = '';
 		inspectLayer.appendChild(segments);
 		resizeInput();
+		updateSubmitButton();
+		updateSectionNav();
 	}
 
 	function selectToken(token) {
-		input.focus();
-		input.setSelectionRange(token.start, token.end);
+		const sections = getCommandSections(traversalFullCommand || command);
+		const index = findSectionIndexForStart(sections, token.start);
+		focusSection(token, index >= 0 ? index : -1);
 	}
 
 	function appendCommandBubble(parent, commandText) {
@@ -2691,9 +3097,14 @@ Prism.languages.markup={comment:{pattern:/<!--(?:(?!<!--)[\s\S])*?-->/,greedy:!0
 		const segments = document.createElement('div');
 		segments.className = 'trail-command-segments';
 
+		const prompt = document.createElement('span');
+		prompt.className = 'trail-command-prompt';
+		prompt.textContent = '$ ';
+		segments.appendChild(prompt);
+
 		const tokens = parseCommandTokens(commandText);
 		if (tokens.length === 0) {
-			segments.textContent = commandText;
+			segments.appendChild(document.createTextNode(commandText));
 		} else {
 			tokens.forEach(function (token, index) {
 				const gapBefore =
@@ -2867,6 +3278,11 @@ Prism.languages.markup={comment:{pattern:/<!--(?:(?!<!--)[\s\S])*?-->/,greedy:!0
 
 		const path = extractHyperPath(value);
 		if (!path) {
+			command = value;
+			input.value = command;
+			hideAutocomplete();
+			renderInspectLayer();
+
 			const entry = {
 				id: createEntryId(),
 				step: trail.entries.length + 1,
@@ -2884,11 +3300,19 @@ Prism.languages.markup={comment:{pattern:/<!--(?:(?!<!--)[\s\S])*?-->/,greedy:!0
 			renderTrail();
 			userPinnedScroll = false;
 			scrollCurrentEntryToCenter(true);
+
+			if (!options || !options.traversalStep) {
+				syncTraversalState(value);
+			} else {
+				activeSectionIndex = traversalDepth;
+			}
+			updateSectionNav();
 			return;
 		}
 
 		running = true;
 		userPinnedScroll = false;
+		updateSubmitButton();
 		command = value;
 		input.value = command;
 		hideAutocomplete();
@@ -2937,6 +3361,14 @@ Prism.languages.markup={comment:{pattern:/<!--(?:(?!<!--)[\s\S])*?-->/,greedy:!0
 		}
 
 		running = false;
+		updateSubmitButton();
+		updateSectionNav();
+
+		if (!options || !options.traversalStep) {
+			syncTraversalState(value);
+		} else {
+			activeSectionIndex = traversalDepth;
+		}
 	}
 
 	function restoreFromHistoryState(state, replaceHighlightOnly) {
@@ -2952,6 +3384,7 @@ Prism.languages.markup={comment:{pattern:/<!--(?:(?!<!--)[\s\S])*?-->/,greedy:!0
 		input.value = command;
 		trail.currentId = entry.id;
 		highlightedId = replaceHighlightOnly ? entry.id : null;
+		syncTraversalState(command);
 		writeTrail(trail);
 		renderInspectLayer();
 		renderTrail();
@@ -2967,6 +3400,7 @@ Prism.languages.markup={comment:{pattern:/<!--(?:(?!<!--)[\s\S])*?-->/,greedy:!0
 		command = entry.command;
 		input.value = command;
 		trail.currentId = entry.id;
+		syncTraversalState(command);
 		const state = {
 			command: entry.command,
 			path: entry.path,
@@ -3018,6 +3452,11 @@ Prism.languages.markup={comment:{pattern:/<!--(?:(?!<!--)[\s\S])*?-->/,greedy:!0
 
 	input.addEventListener('input', function () {
 		command = input.value;
+		syncTraversalState(command);
+		const sections = getTraversalSections(command);
+		if (activeSectionIndex >= sections.length) {
+			activeSectionIndex = -1;
+		}
 		renderInspectLayer();
 		void queueAutocomplete();
 	});
@@ -3025,6 +3464,7 @@ Prism.languages.markup={comment:{pattern:/<!--(?:(?!<!--)[\s\S])*?-->/,greedy:!0
 	input.addEventListener('focus', function () {
 		isFocused = true;
 		hoveredToken = null;
+		syncActiveSectionFromSelection();
 		renderInspectLayer();
 		void queueAutocomplete();
 	});
@@ -3032,8 +3472,19 @@ Prism.languages.markup={comment:{pattern:/<!--(?:(?!<!--)[\s\S])*?-->/,greedy:!0
 	input.addEventListener('blur', function () {
 		isFocused = false;
 		hoveredToken = null;
+		syncActiveSectionFromSelection();
 		renderInspectLayer();
 		window.setTimeout(hideAutocomplete, 120);
+	});
+
+	input.addEventListener('click', function () {
+		syncActiveSectionFromSelection();
+		renderInspectLayer();
+	});
+
+	input.addEventListener('keyup', function () {
+		syncActiveSectionFromSelection();
+		updateSectionNav();
 	});
 
 	input.addEventListener('keydown', function (event) {
@@ -3088,10 +3539,31 @@ Prism.languages.markup={comment:{pattern:/<!--(?:(?!<!--)[\s\S])*?-->/,greedy:!0
 	});
 
 	shell.addEventListener('pointerdown', function (event) {
-		if (event.target === input) return;
+		if (event.target === input || event.target.closest('.command-submit')) return;
 		event.preventDefault();
 		input.focus();
 	});
+
+	if (submitBtn) {
+		submitBtn.addEventListener('click', function (event) {
+			event.preventDefault();
+			if (submitBtn.disabled) return;
+			hideAutocomplete();
+			void submitCommand();
+		});
+	}
+
+	if (sectionPrevBtn) {
+		sectionPrevBtn.addEventListener('click', function () {
+			void stepTraversal(-1);
+		});
+	}
+
+	if (sectionNextBtn) {
+		sectionNextBtn.addEventListener('click', function () {
+			void stepTraversal(1);
+		});
+	}
 
 	form.addEventListener('submit', function (event) {
 		event.preventDefault();
@@ -3119,8 +3591,10 @@ Prism.languages.markup={comment:{pattern:/<!--(?:(?!<!--)[\s\S])*?-->/,greedy:!0
 	}
 
 	bootstrapFromUrl();
+	syncTraversalState(command);
 	renderInspectLayer();
 	renderTrail();
+	updateSubmitButton();
 
 	if (trail.entries.length === 0) {
 		void submitCommand(command, { replaceHistory: true });
@@ -3136,4 +3610,6 @@ Prism.languages.markup={comment:{pattern:/<!--(?:(?!<!--)[\s\S])*?-->/,greedy:!0
 	if (typeof window.hideAppLoader === 'function') {
 		window.hideAppLoader();
 	}
+
+	void getDeviceCatalog();
 })();

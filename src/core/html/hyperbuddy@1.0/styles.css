@@ -5,6 +5,7 @@
 	--neutral-3: #f0f0f0;
 	--neutral-4: #e4e4e4;
 	--neutral-5: #d6d6d6;
+	--neutral-6: #c1c1c1;
 	--neutral-a1: #151515;
 	--neutral-a2: #333333;
 	--neutral-a5: #525252;
@@ -148,6 +149,11 @@ body {
 	line-height: 1.65;
 	letter-spacing: 0.15px;
 	color: var(--neutral-a1);
+}
+
+.trail-command-prompt {
+	color: var(--neutral-a6);
+	user-select: none;
 }
 
 .trail-command-gap {
@@ -354,6 +360,48 @@ body {
 	border-top: 1px solid var(--neutral-3);
 }
 
+.section-nav {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 10px;
+	margin-bottom: 10px;
+}
+
+.section-nav-btn {
+	padding: 6px 12px;
+	border: 1px solid var(--neutral-4);
+	border-radius: 999px;
+	background: var(--neutral-1);
+	color: var(--neutral-a2);
+	font-family: var(--font-sans);
+	font-size: 12px;
+	font-weight: 500;
+	line-height: 1;
+	cursor: pointer;
+	transition: background 100ms ease, border-color 100ms ease, color 100ms ease;
+}
+
+.section-nav-btn:hover:not(:disabled) {
+	background: var(--neutral-2);
+	border-color: var(--neutral-5);
+	color: var(--neutral-a1);
+}
+
+.section-nav-btn:disabled {
+	opacity: 0.45;
+	cursor: not-allowed;
+}
+
+.section-nav-indicator {
+	min-width: 72px;
+	text-align: center;
+	font-family: var(--font-sans);
+	font-size: 12px;
+	color: var(--neutral-a6);
+	user-select: none;
+}
+
 .autocomplete {
 	position: absolute;
 	left: 20px;
@@ -367,6 +415,10 @@ body {
 	background: var(--neutral-1);
 	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
 	scrollbar-width: thin;
+}
+
+.autocomplete.is-device-list {
+	max-height: min(360px, 45vh);
 }
 
 .autocomplete-item {
@@ -409,7 +461,7 @@ body {
 	position: relative;
 	width: 100%;
 	min-height: 48px;
-	padding: 15px;
+	padding: 15px calc(42.5px + 10px) 15px 15px;
 	border: 1px solid var(--neutral-3);
 	border-radius: var(--radius-composer);
 	background: transparent;
@@ -420,6 +472,49 @@ body {
 
 .command-shell:focus-within {
 	border-color: var(--neutral-5);
+}
+
+.command-shell-body {
+	position: relative;
+	flex: 1;
+	min-width: 0;
+	min-height: 1.5em;
+}
+
+.command-submit {
+	position: absolute;
+	right: 7.5px;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 42.5px;
+	height: 42.5px;
+	padding: 0;
+	border: none;
+	border-radius: 999px;
+	background: var(--neutral-a1);
+	color: var(--neutral-1);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	flex-shrink: 0;
+	transition: background 100ms ease, color 100ms ease;
+}
+
+.command-submit:hover:not(:disabled) {
+	background: var(--neutral-a2);
+}
+
+.command-submit:disabled {
+	background: var(--neutral-4);
+	color: var(--neutral-6);
+	cursor: not-allowed;
+}
+
+.command-submit-icon {
+	width: 20px;
+	height: 20px;
+	display: block;
 }
 
 .inspect-layer {
@@ -449,7 +544,7 @@ body {
 	width: 100%;
 	min-height: 48px;
 	max-height: 120px;
-	padding: 15px;
+	padding: 0;
 	margin: 0;
 	border: none;
 	background: transparent;
@@ -499,6 +594,10 @@ body {
 	user-select: none;
 }
 
+.inspect-gap.is-inactive {
+	color: var(--neutral-a6);
+}
+
 .inspect-segment-wrap {
 	position: relative;
 	display: inline;
@@ -518,48 +617,12 @@ body {
 	background: var(--accent-soft);
 }
 
-.segment-tooltip {
-	position: absolute;
-	left: 50%;
-	bottom: calc(100% + 10px);
-	transform: translateX(-50%);
-	min-width: 180px;
-	max-width: 280px;
-	padding: 10px 14px;
-	border-radius: var(--radius-primary);
-	border: 1px solid #8f8f8f;
-	background: var(--neutral-a2);
-	box-shadow: rgb(195, 195, 195, 0.15) 0 4px 12px;
-	z-index: 30;
-	pointer-events: none;
+.inspect-segment.is-inactive {
+	color: var(--neutral-a6);
 }
 
-.segment-tooltip::after {
-	content: '';
-	position: absolute;
-	top: 100%;
-	left: 50%;
-	transform: translateX(-50%);
-	border: 6px solid transparent;
-	border-top-color: var(--neutral-a2);
-}
-
-.tooltip-label {
-	display: block;
-	font-family: var(--font-sans);
-	font-size: 11px;
-	font-weight: 500;
-	color: var(--neutral-1);
-	margin-bottom: 4px;
-}
-
-.tooltip-text {
-	margin: 0;
-	font-family: var(--font-sans);
-	font-size: 11px;
-	line-height: 1.4;
-	font-weight: 400;
-	color: var(--neutral-1);
+.inspect-segment.is-inactive.is-active {
+	background: color-mix(in oklab, var(--neutral-4) 55%, transparent);
 }
 
 @media (max-width: 600px) {
