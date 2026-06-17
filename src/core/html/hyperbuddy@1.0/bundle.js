@@ -2698,31 +2698,67 @@ const PRELOADED_DEVICES = [
 	function extractCompletableKeys(data) {
 		if (!data || typeof data !== 'object' || Array.isArray(data)) return [];
 
-		return Object.keys(data)
-			.filter(function (key) {
-				if (key === 'commitments' || key === 'signature' || key === 'type') return false;
-				const value = data[key];
+		const metaKeys = new Set(['commitments', 'signature', 'type', 'status', 'ao-types']);
+		const entries = Object.entries(data).filter(function (entry) {
+			return !metaKeys.has(entry[0]);
+		});
+		const numericKeyCount = entries.filter(function (entry) {
+			return /^\d+$/.test(entry[0]);
+		}).length;
+
+		if (numericKeyCount > 0 && numericKeyCount >= entries.length / 2) {
+			return entries
+				.map(function (entry) {
+					return entry[1];
+				})
+				.filter(function (value) {
+					return typeof value === 'string' && value.length > 0;
+				})
+				.sort();
+		}
+
+		return entries
+			.filter(function (entry) {
+				const value = entry[1];
 				return typeof value !== 'object' || value === null;
+			})
+			.map(function (entry) {
+				return entry[0];
 			})
 			.sort();
 	}
 
 	async function fetchPathKeys(path) {
 		if (!path) return [];
-		if (keysCache.has(path)) return keysCache.get(path);
+
+		const normalized = path.replace(/\/+$/, '');
+		const keysPath = normalized + '/keys';
+		if (keysCache.has(keysPath)) return keysCache.get(keysPath);
 
 		try {
-			const response = await fetch(path, {
+			let response = await fetch(keysPath, {
 				headers: { Accept: 'application/json' },
 			});
+			if (!response.ok) {
+				response = await fetch(normalized, {
+					headers: { Accept: 'application/json' },
+				});
+			}
 			if (!response.ok) return [];
 			const data = await response.json();
 			const keys = extractCompletableKeys(data);
-			keysCache.set(path, keys);
+			keysCache.set(keysPath, keys);
 			return keys;
 		} catch {
 			return [];
 		}
+	}
+
+	function isPathKeyCompletionContext(ctx, deviceCtx) {
+		if (deviceCtx) return false;
+		if (!ctx || ctx.mode !== 'segment' || !ctx.parentPath) return false;
+		if (ctx.prefix.startsWith('~')) return false;
+		return true;
 	}
 
 	async function buildSuggestions(text, cursor) {
@@ -2755,6 +2791,21 @@ const PRELOADED_DEVICES = [
 			return suggestions;
 		}
 
+		if (isPathKeyCompletionContext(ctx, deviceCtx)) {
+			if (/~[\w.-]+@\d+\.\d+$/.test(ctx.parentPath) && !ctx.prefix) {
+				DEVICE_ROOT_KEYS.forEach(function (key) {
+					add(ctx.replaceStart, cursor, key, key, 'common key');
+				});
+			}
+
+			const keys = await fetchPathKeys(ctx.parentPath);
+			keys.forEach(function (key) {
+				if (ctx.prefix && !key.toLowerCase().startsWith(ctx.prefix.toLowerCase())) return;
+				add(ctx.replaceStart, cursor, key, key, 'key');
+			});
+			return suggestions;
+		}
+
 		STATIC_COMMANDS.forEach(function (cmd) {
 			if (cmd.toLowerCase().startsWith(before.toLowerCase()) && cmd !== before) {
 				add(0, cursor, cmd, cmd, 'command');
@@ -2774,20 +2825,6 @@ const PRELOADED_DEVICES = [
 			});
 		}
 
-		if (ctx.mode === 'segment' && ctx.parentPath) {
-			if (/~[\w.-]+@\d+\.\d+$/.test(ctx.parentPath) && !ctx.prefix) {
-				DEVICE_ROOT_KEYS.forEach(function (key) {
-					add(ctx.replaceStart, cursor, key, key, 'common key');
-				});
-			}
-
-			const keys = await fetchPathKeys(ctx.parentPath);
-			keys.forEach(function (key) {
-				if (ctx.prefix && !key.toLowerCase().startsWith(ctx.prefix.toLowerCase())) return;
-				add(ctx.replaceStart, cursor, key, key, ctx.parentPath);
-			});
-		}
-
 		return suggestions.slice(0, 8);
 	}
 
@@ -2798,6 +2835,7 @@ const PRELOADED_DEVICES = [
 		autocompleteEl.hidden = true;
 		autocompleteEl.innerHTML = '';
 		autocompleteEl.classList.remove('is-device-list');
+		autocompleteEl.classList.remove('is-key-list');
 	}
 
 	function renderAutocomplete(items) {
@@ -2807,6 +2845,10 @@ const PRELOADED_DEVICES = [
 		autocompleteEl.classList.toggle(
 			'is-device-list',
 			items.length > 0 && items[0].detail === 'device',
+		);
+		autocompleteEl.classList.toggle(
+			'is-key-list',
+			items.length > 0 && items[0].detail === 'key',
 		);
 
 		if (!items.length || !isFocused) {

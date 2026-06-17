@@ -417,7 +417,8 @@ body {
 	scrollbar-width: thin;
 }
 
-.autocomplete.is-device-list {
+.autocomplete.is-device-list,
+.autocomplete.is-key-list {
 	max-height: min(360px, 45vh);
 }
 
