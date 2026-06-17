@@ -497,6 +497,45 @@ body {
 	border: 1px solid color-mix(in oklab, var(--positive-1) 28%, transparent);
 }
 
+.trail-view-toggle {
+	display: inline-flex;
+	align-items: center;
+	padding: 3px 9px;
+	border: 1px solid var(--neutral-4);
+	border-radius: 999px;
+	background: var(--neutral-1);
+	color: var(--neutral-a2);
+	font-family: var(--font-sans);
+	font-size: 11px;
+	font-weight: 500;
+	line-height: 1;
+	cursor: pointer;
+	white-space: nowrap;
+	transition: background 100ms ease, border-color 100ms ease, color 100ms ease;
+}
+
+.trail-view-toggle:hover {
+	background: var(--neutral-2);
+	border-color: var(--neutral-5);
+	color: var(--neutral-a1);
+}
+
+.trail-html-output {
+	min-height: 1.5em;
+	max-height: min(480px, 65vh);
+	overflow: auto;
+	background: var(--neutral-1);
+	scrollbar-width: thin;
+}
+
+.trail-html-preview {
+	display: block;
+	width: 100%;
+	min-height: 120px;
+	border: 0;
+	background: var(--neutral-1);
+}
+
 .trail-code-output {
 	margin: 0;
 	padding: 12px 14px;

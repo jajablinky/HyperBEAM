@@ -18,6 +18,8 @@ info(Opts) ->
             % Default message viewer page:
             <<"index">> => <<"index.html">>,
             <<"bundle.js">> => <<"bundle.js">>,
+            <<"device-exports.json">> => <<"device-exports.json">>,
+            <<"device-exports.js">> => <<"device-exports.js">>,
             <<"fonts.css">> => <<"fonts.css">>,
             <<"favicon-light.png">> => <<"favicon-light.png">>,
             <<"favicon-dark.png">> => <<"favicon-dark.png">>,
