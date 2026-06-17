@@ -11,82 +11,92 @@
 	</head>
 	<body>
 		<main id="app" class="app" hidden>
-			<div id="app-viewport" class="app-viewport">
-				<header class="app-header">
-					<img class="app-logo" src="favicon-light.png" alt="Hyperbuddy" width="28" height="28" />
-					<span class="app-tagline">HyperPATH command tutorial</span>
-				</header>
-				<div id="trail" class="trail" aria-live="polite"></div>
-				<div id="trail-anchor" class="trail-anchor" aria-hidden="true"></div>
-			</div>
-			<form id="command-form" class="command-form" autocomplete="off">
-				<div id="autocomplete" class="autocomplete" role="listbox" hidden></div>
-				<div id="section-nav" class="section-nav" hidden>
-					<button
-						type="button"
-						id="section-prev"
-						class="section-nav-btn"
-						aria-label="Previous command section"
-					>
-						Back
-					</button>
-					<span id="section-indicator" class="section-nav-indicator" aria-live="polite"></span>
-					<button
-						type="button"
-						id="section-next"
-						class="section-nav-btn"
-						aria-label="Next command section"
-					>
-						Next
-					</button>
-				</div>
-				<div id="command-shell" class="command-shell">
-					<div class="command-shell-body">
-						<div id="inspect-layer" class="inspect-layer" aria-hidden="true"></div>
-						<textarea
-							id="command-input"
-							class="command-input"
-							rows="1"
-							spellcheck="false"
-							aria-label="HyperPATH command"
-						></textarea>
+			<div class="app-layout">
+				<aside class="app-panel app-panel-left">
+					<header class="app-header">
+						<img class="app-logo" src="favicon-light.png" alt="Hyperbuddy" width="28" height="28" />
+						<span class="app-tagline">HyperPATH command tutorial</span>
+					</header>
+					<div id="path-graph" class="path-graph" aria-label="Command path graph" hidden></div>
+					<form id="command-form" class="command-form" autocomplete="off">
+						<div id="autocomplete" class="autocomplete" role="listbox" hidden></div>
+						<div id="section-nav" class="section-nav" hidden>
+							<button
+								type="button"
+								id="section-prev"
+								class="section-nav-btn"
+								aria-label="Previous command section"
+							>
+								Back
+							</button>
+							<span id="section-indicator" class="section-nav-indicator" aria-live="polite"></span>
+							<button
+								type="button"
+								id="section-next"
+								class="section-nav-btn"
+								aria-label="Next command section"
+							>
+								Next
+							</button>
+						</div>
+						<div id="command-shell" class="command-shell">
+							<div class="command-shell-body">
+								<div id="inspect-layer" class="inspect-layer" aria-hidden="true"></div>
+								<textarea
+									id="command-input"
+									class="command-input"
+									rows="1"
+									spellcheck="false"
+									aria-label="HyperPATH command"
+								></textarea>
+							</div>
+							<button
+								type="submit"
+								id="command-submit"
+								class="command-submit"
+								aria-label="Run command"
+								disabled
+							>
+								<svg
+									class="command-submit-icon"
+									xmlns="http://www.w3.org/2000/svg"
+									viewBox="0 0 256 256"
+									aria-hidden="true"
+								>
+									<line
+										x1="64"
+										y1="192"
+										x2="192"
+										y2="64"
+										fill="none"
+										stroke="currentColor"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="24"
+									/>
+									<polyline
+										points="88 64 192 64 192 168"
+										fill="none"
+										stroke="currentColor"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="24"
+									/>
+								</svg>
+							</button>
+						</div>
+					</form>
+				</aside>
+				<section class="app-panel app-panel-right">
+					<div class="responses-header">
+						<span class="responses-title">Responses</span>
 					</div>
-					<button
-						type="submit"
-						id="command-submit"
-						class="command-submit"
-						aria-label="Run command"
-						disabled
-					>
-						<svg
-							class="command-submit-icon"
-							xmlns="http://www.w3.org/2000/svg"
-							viewBox="0 0 256 256"
-							aria-hidden="true"
-						>
-							<line
-								x1="64"
-								y1="192"
-								x2="192"
-								y2="64"
-								fill="none"
-								stroke="currentColor"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="24"
-							/>
-							<polyline
-								points="88 64 192 64 192 168"
-								fill="none"
-								stroke="currentColor"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="24"
-							/>
-						</svg>
-					</button>
-				</div>
-			</form>
+					<div id="app-viewport" class="app-viewport">
+						<div id="trail" class="trail" aria-live="polite"></div>
+						<div id="trail-anchor" class="trail-anchor" aria-hidden="true"></div>
+					</div>
+				</section>
+			</div>
 		</main>
 		<div id="app-loader">
 			<img id="loader-icon" src="favicon-light.png" alt="Loading" />
@@ -103,6 +113,6 @@
 			};
 		</script>
 		<script src="script.js"></script>
-		<script src="bundle.js"></script>
+		<script src="bundle.js?v=path-graph-anim-4"></script>
 	</body>
 </html>

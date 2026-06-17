@@ -2554,6 +2554,7 @@ const PRELOADED_DEVICES = [
 	const sectionPrevBtn = document.getElementById('section-prev');
 	const sectionNextBtn = document.getElementById('section-next');
 	const sectionIndicatorEl = document.getElementById('section-indicator');
+	const pathGraphEl = document.getElementById('path-graph');
 
 	let command = DEFAULT_COMMAND;
 	let isFocused = false;
@@ -2570,6 +2571,11 @@ const PRELOADED_DEVICES = [
 	let autocompleteIndex = -1;
 	let keysCache = new Map();
 	let deviceCatalogCache = null;
+	let pathGraphLastDepth = -1;
+	let pathGraphMarkerTimeout = 0;
+	let pathGraphTraversalToken = 0;
+	const PATH_GRAPH_LOADING_CREEP_MS = 9000;
+	const PATH_GRAPH_COMPLETE_MS = 380;
 
 	async function getDeviceCatalog() {
 		if (deviceCatalogCache) return deviceCatalogCache;
@@ -2950,6 +2956,257 @@ const PRELOADED_DEVICES = [
 		return 0;
 	}
 
+	function getSectionGraphKind(section) {
+		const text = section.text || '';
+		if (/^curl$/i.test(text)) return 'command';
+		if (text.startsWith('~') || text.startsWith('/~')) return 'device';
+		if (text.startsWith('&')) return 'field';
+		if (text.startsWith('/')) return 'key';
+		return 'segment';
+	}
+
+	function getSectionGraphLabel(section) {
+		const text = section.text || '';
+		if (text.length > 36) return text.slice(0, 34) + '…';
+		return text;
+	}
+
+	function getPathGraphStepState(index) {
+		if (index < traversalDepth) return 'is-complete';
+		if (index === traversalDepth) return 'is-active';
+		return 'is-inactive';
+	}
+
+	function createPathGraphStep(section, index, minDepth) {
+		const item = document.createElement('li');
+		item.className = 'path-graph-step ' + getPathGraphStepState(index);
+		item.dataset.graphIndex = String(index);
+
+		const button = document.createElement('button');
+		button.type = 'button';
+		button.className = 'path-graph-node';
+		button.disabled = running || index < minDepth;
+
+		const label = document.createElement('span');
+		label.className = 'path-graph-node-label';
+		label.textContent = getSectionGraphLabel(section);
+
+		const kind = document.createElement('span');
+		kind.className = 'path-graph-node-kind';
+		kind.textContent = getSectionGraphKind(section);
+
+		button.appendChild(label);
+		button.appendChild(kind);
+
+		if (index === traversalDepth) {
+			button.setAttribute('aria-current', 'step');
+		}
+
+		button.addEventListener('click', function () {
+			void goToTraversalDepth(index);
+		});
+
+		item.appendChild(button);
+		return item;
+	}
+
+	function updatePathGraphStep(item, section, index, minDepth) {
+		item.className = 'path-graph-step ' + getPathGraphStepState(index);
+
+		const button = item.querySelector('.path-graph-node');
+		if (!button) return;
+
+		button.disabled = running || index < minDepth;
+		button.querySelector('.path-graph-node-label').textContent = getSectionGraphLabel(section);
+		button.querySelector('.path-graph-node-kind').textContent = getSectionGraphKind(section);
+
+		if (index === traversalDepth) {
+			button.setAttribute('aria-current', 'step');
+		} else {
+			button.removeAttribute('aria-current');
+		}
+	}
+
+	function getActiveMarkerY() {
+		const inner = pathGraphEl.querySelector('.path-graph-inner');
+		const activeItem = pathGraphEl.querySelector('.path-graph-step.is-active');
+		if (!inner || !activeItem) return 0;
+
+		const innerRect = inner.getBoundingClientRect();
+		const itemRect = activeItem.getBoundingClientRect();
+		return itemRect.top - innerRect.top + 22;
+	}
+
+	function prefersReducedPathGraphMotion() {
+		return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+	}
+
+	function freezeMarkerTransform(marker) {
+		const transform = window.getComputedStyle(marker).transform;
+		let y = typeof marker._pathGraphY === 'number' ? marker._pathGraphY : 0;
+		if (transform && transform !== 'none') {
+			y = new DOMMatrix(transform).m42;
+		}
+		marker.style.transition = 'none';
+		marker.style.transform = 'translate3d(0,' + y + 'px,0)';
+		void marker.offsetHeight;
+		return y;
+	}
+
+	function stopPathGraphMarkerMotion() {
+		pathGraphTraversalToken += 1;
+		if (pathGraphMarkerTimeout) {
+			window.clearTimeout(pathGraphMarkerTimeout);
+			pathGraphMarkerTimeout = 0;
+		}
+		if (!pathGraphEl) return;
+		pathGraphEl.classList.remove('is-loading', 'is-animating');
+		const marker = pathGraphEl.querySelector('.path-graph-marker');
+		if (marker) freezeMarkerTransform(marker);
+	}
+
+	function movePathGraphMarker(toY, options) {
+		if (!pathGraphEl) return;
+
+		const marker = pathGraphEl.querySelector('.path-graph-marker');
+		if (!marker) return;
+
+		const animate = options && options.animate;
+		const duration = (options && options.duration) || PATH_GRAPH_COMPLETE_MS;
+		const easing = (options && options.easing) || 'cubic-bezier(0.4, 0, 0.2, 1)';
+		const loading = options && options.loading;
+		const currentY = freezeMarkerTransform(marker);
+
+		if (!animate || Math.abs(currentY - toY) < 0.5) {
+			marker.style.transform = 'translate3d(0,' + toY + 'px,0)';
+			marker._pathGraphY = toY;
+			return;
+		}
+
+		pathGraphEl.classList.remove('is-loading', 'is-animating');
+		pathGraphEl.classList.add(loading ? 'is-loading' : 'is-animating');
+		marker.style.transition = 'transform ' + String(duration) + 'ms ' + easing;
+		marker.style.transform = 'translate3d(0,' + toY + 'px,0)';
+		marker._pathGraphY = toY;
+
+		pathGraphMarkerTimeout = window.setTimeout(function () {
+			pathGraphMarkerTimeout = 0;
+			if (!pathGraphEl) return;
+			pathGraphEl.classList.remove('is-loading', 'is-animating');
+			marker.style.transition = 'none';
+		}, duration + 20);
+	}
+
+	function startPathGraphLoadingCreep(fromY, toY) {
+		if (prefersReducedPathGraphMotion() || Math.abs(fromY - toY) < 0.5) return;
+
+		movePathGraphMarker(toY, {
+			animate: true,
+			duration: PATH_GRAPH_LOADING_CREEP_MS,
+			easing: 'linear',
+			loading: true,
+		});
+	}
+
+	function completePathGraphMarker() {
+		if (!pathGraphEl) return;
+
+		if (pathGraphMarkerTimeout) {
+			window.clearTimeout(pathGraphMarkerTimeout);
+			pathGraphMarkerTimeout = 0;
+		}
+
+		pathGraphEl.classList.remove('is-loading');
+		const targetY = getActiveMarkerY();
+
+		if (prefersReducedPathGraphMotion()) {
+			movePathGraphMarker(targetY, { animate: false });
+			scrollPathGraphToActive(false);
+			return;
+		}
+
+		movePathGraphMarker(targetY, {
+			animate: true,
+			duration: PATH_GRAPH_COMPLETE_MS,
+		});
+		scrollPathGraphToActive(true);
+	}
+
+	function scrollPathGraphToActive(smooth) {
+		if (!pathGraphEl) return;
+
+		const activeItem = pathGraphEl.querySelector('.path-graph-step.is-active');
+		if (!activeItem) return;
+
+		const graphRect = pathGraphEl.getBoundingClientRect();
+		const itemRect = activeItem.getBoundingClientRect();
+		const itemCenter = itemRect.top + itemRect.height / 2;
+		const graphCenter = graphRect.top + graphRect.height / 2;
+		const delta = itemCenter - graphCenter;
+
+		pathGraphEl.scrollTo({
+			top: pathGraphEl.scrollTop + delta,
+			behavior: smooth ? 'smooth' : 'auto',
+		});
+	}
+
+	function renderPathGraph() {
+		if (!pathGraphEl) return;
+
+		const fullCommand = traversalFullCommand || command;
+		const sections = getTraversalSections(fullCommand);
+		if (sections.length <= 1) {
+			pathGraphEl.innerHTML = '';
+			pathGraphEl.hidden = true;
+			pathGraphEl.classList.remove('is-ready', 'is-animating', 'is-loading');
+			pathGraphLastDepth = -1;
+			return;
+		}
+
+		const minDepth = getMinTraversalDepth(fullCommand, sections);
+		const existingList = pathGraphEl.querySelector('.path-graph-list');
+		const canPatch =
+			existingList &&
+			existingList.children.length === sections.length &&
+			pathGraphEl.querySelector('.path-graph-marker');
+
+		if (canPatch) {
+			sections.forEach(function (section, index) {
+				updatePathGraphStep(existingList.children[index], section, index, minDepth);
+			});
+			pathGraphEl.hidden = false;
+			return;
+		}
+
+		const inner = document.createElement('div');
+		inner.className = 'path-graph-inner';
+
+		const marker = document.createElement('div');
+		marker.className = 'path-graph-marker';
+		marker.setAttribute('aria-hidden', 'true');
+
+		const list = document.createElement('ol');
+		list.className = 'path-graph-list';
+
+		sections.forEach(function (section, index) {
+			list.appendChild(createPathGraphStep(section, index, minDepth));
+		});
+
+		inner.appendChild(marker);
+		inner.appendChild(list);
+		pathGraphEl.innerHTML = '';
+		pathGraphEl.appendChild(inner);
+		pathGraphEl.hidden = false;
+		pathGraphLastDepth = -1;
+
+		window.setTimeout(function () {
+			movePathGraphMarker(getActiveMarkerY(), { animate: false });
+			scrollPathGraphToActive(false);
+			pathGraphLastDepth = traversalDepth;
+			pathGraphEl.classList.add('is-ready');
+		}, 0);
+	}
+
 	function updateSectionNav() {
 		const fullCommand = traversalFullCommand || command;
 		const sections = getTraversalSections(fullCommand);
@@ -2976,6 +3233,8 @@ const PRELOADED_DEVICES = [
 				sectionIndicatorEl.textContent = String(sections.length) + ' sections';
 			}
 		}
+
+		renderPathGraph();
 	}
 
 	function focusSection(section, index) {
@@ -2990,7 +3249,7 @@ const PRELOADED_DEVICES = [
 		updateSectionNav();
 	}
 
-	async function stepTraversal(delta) {
+	async function goToTraversalDepth(targetDepth) {
 		if (running) return;
 
 		if (!traversalFullCommand) {
@@ -2998,16 +3257,38 @@ const PRELOADED_DEVICES = [
 		}
 
 		const sections = getTraversalSections(traversalFullCommand);
-		if (sections.length <= 1) return;
+		if (!sections.length) return;
+		if (targetDepth < 0 || targetDepth >= sections.length) return;
+		if (targetDepth === traversalDepth) return;
 
-		const maxDepth = sections.length - 1;
-		const nextDepth = traversalDepth + delta;
-		if (nextDepth < 0 || nextDepth > maxDepth) return;
+		stopPathGraphMarkerMotion();
 
-		traversalDepth = nextDepth;
-		activeSectionIndex = nextDepth;
-		const nextCommand = traversalFullCommand.slice(0, sections[nextDepth].end).trim();
-		await submitCommand(nextCommand, { traversalStep: true });
+		const traversalToken = ++pathGraphTraversalToken;
+		const marker = pathGraphEl && pathGraphEl.querySelector('.path-graph-marker');
+		const fromY =
+			marker && typeof marker._pathGraphY === 'number'
+				? marker._pathGraphY
+				: getActiveMarkerY();
+
+		traversalDepth = targetDepth;
+		activeSectionIndex = targetDepth;
+		renderPathGraph();
+		void pathGraphEl.offsetHeight;
+		startPathGraphLoadingCreep(fromY, getActiveMarkerY());
+
+		const nextCommand = traversalFullCommand.slice(0, sections[targetDepth].end).trim();
+		try {
+			await submitCommand(nextCommand, { traversalStep: true });
+		} finally {
+			if (traversalToken !== pathGraphTraversalToken) return;
+			completePathGraphMarker();
+			pathGraphLastDepth = traversalDepth;
+			if (pathGraphEl) pathGraphEl.classList.add('is-ready');
+		}
+	}
+
+	async function stepTraversal(delta) {
+		await goToTraversalDepth(traversalDepth + delta);
 	}
 
 	function syncActiveSectionFromSelection() {
