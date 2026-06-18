@@ -1122,8 +1122,6 @@ render_device_html(Data) ->
             esc(maps:get(<<"id">>, Device)),
             <<"</h1><p>">>, esc(maps:get(<<"summary">>, Data)), <<"</p>">>,
             device_section_index(SchemaOrder, Spec, Recipes),
-            <<"<h2 id=\"actions\">Actions</h2>">>,
-            action_controls(DeviceID, Schema, SchemaOrder),
             <<"<h2 id=\"schema\">Schema</h2><table><thead><tr>"
                 "<th>Key</th><th>Description</th><th>Parameters</th></tr></thead><tbody>">>,
             schema_rows(DeviceID, Schema, SchemaOrder),
@@ -1382,65 +1380,6 @@ body.hb-docs-protocol .eyebrow {
 	  color: var(--text-secondary);
 	  font-size: var(--text-small);
 	}
-	.hb-docs-action-grid {
-	  display: grid;
-	  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
-	  gap: 12px;
-	  margin: 1rem 0 2rem;
-	}
-	.hb-docs-action {
-	  display: grid;
-	  align-content: start;
-	  gap: 10px;
-	  padding: 14px;
-	  border: 1px solid var(--border);
-	  border-radius: 8px;
-	  background: var(--bg);
-	}
-	.hb-docs-action p {
-	  margin: 4px 0 0;
-	  color: var(--text-secondary);
-	  font-size: var(--text-small);
-	}
-	.hb-docs-action label {
-	  display: grid;
-	  gap: 5px;
-	  color: var(--text-secondary);
-	  font-size: var(--text-caption);
-	}
-	.hb-docs-action label span {
-	  display: flex;
-	  justify-content: space-between;
-	  gap: 8px;
-	}
-	.hb-docs-action em {
-	  color: var(--text-tertiary);
-	  font-style: normal;
-	}
-	.hb-docs-action input {
-	  width: 100%;
-	  min-height: 34px;
-	  padding: 6px 8px;
-	  border: 1px solid var(--border);
-	  border-radius: 6px;
-	  background: var(--bg-muted);
-	  color: var(--text);
-	  font: inherit;
-	}
-	.hb-docs-action button {
-	  justify-self: start;
-	  min-height: 34px;
-	  padding: 0 12px;
-	  border: 1px solid var(--border);
-	  border-radius: 6px;
-	  background: var(--text);
-	  color: var(--bg);
-	  font: inherit;
-	  cursor: pointer;
-	}
-	.hb-docs-action-empty {
-	  margin: 0;
-	}
 	.spec-meta {
   display: flex;
   align-items: center;
@@ -1590,55 +1529,6 @@ concept_rows(Concepts) ->
             <<"<p><strong>">>, esc(Key), <<"</strong><br>">>, esc(Value), <<"</p>">>
         ]
     || {Key, Value} <- lists:sort(maps:to_list(Concepts))
-    ].
-
-action_controls(DeviceID, Schema, Order) ->
-    [
-        <<"<div class=\"hb-docs-action-grid\">">>,
-        [
-            case maps:get(Name, Schema, undefined) of
-                undefined -> [];
-                KeySchema -> action_control(DeviceID, Name, KeySchema)
-            end
-        || Name <- Order
-        ],
-        <<"</div>">>
-    ].
-
-action_control(DeviceID, Name, KeySchema) ->
-    Params = maps:get(<<"parameters">>, KeySchema, #{}),
-    [
-        <<"<form class=\"hb-docs-action\" data-device=\"">>, esc(DeviceID),
-        <<"\" data-key=\"">>, esc(Name),
-        <<"\" data-template=\"">>,
-        esc(maps:get(<<"action-path-template">>, KeySchema, <<"/~", DeviceID/binary, "/", Name/binary>>)),
-        <<"\">">>,
-        <<"<div><strong>">>, esc(Name), <<"</strong><p>">>,
-        esc(maps:get(<<"description">>, KeySchema, <<>>)), <<"</p></div>">>,
-        action_inputs(Params),
-        <<"<button type=\"submit\">Go</button></form>">>
-    ].
-
-action_inputs(Params) when map_size(Params) =:= 0 ->
-    <<"<p class=\"hb-docs-action-empty\">No parameters.</p>">>;
-action_inputs(Params) ->
-    [
-        [
-            <<"<label><span>">>, esc(Name),
-            case maps:get(<<"required">>, Param, false) of
-                true -> <<" <em>required</em>">>;
-                false -> <<" <em>optional</em>">>
-            end,
-            <<"</span><input name=\"">>, esc(Name), <<"\" value=\"">>,
-            esc(maps:get(<<"example">>, Param, <<>>)), <<"\" placeholder=\"">>,
-            esc(maps:get(<<"type">>, Param, <<>>)), <<"\"">>,
-            case maps:get(<<"required">>, Param, false) of
-                true -> <<" required">>;
-                false -> <<>>
-            end,
-            <<"></label>">>
-        ]
-    || {Name, Param} <- lists:sort(maps:to_list(Params))
     ].
 
 schema_rows(DeviceID, Schema, Order) ->
@@ -1880,34 +1770,9 @@ docs_page_enhancer_js() ->
 	    });
 	  }
 
-	  function wireActionForms() {
-	    document.querySelectorAll('.hb-docs-action').forEach(function (form) {
-	      if (form.dataset.actionBound) return;
-	      form.dataset.actionBound = '1';
-	      form.addEventListener('submit', function (event) {
-	        event.preventDefault();
-	        if (!form.reportValidity()) return;
-	        var path = form.dataset.template || ('/~' + form.dataset.device + '/' + form.dataset.key);
-	        var params = new URLSearchParams();
-	        form.querySelectorAll('input[name]').forEach(function (input) {
-	          var value = (input.value || '').trim();
-	          var token = '{' + input.name + '}';
-	          if (path.indexOf(token) !== -1) {
-	            path = path.split(token).join(encodeURIComponent(value));
-	          } else if (value !== '') {
-	            params.set(input.name, value);
-	          }
-	        });
-	        var query = params.toString();
-	        window.location.href = query ? path + '?' + query : path;
-	      });
-	    });
-	  }
-
 	  window.HBDocsCodeChrome = {
 	    refresh: function () {
 	      addCopyButtons();
-	      wireActionForms();
 	    }
 	  };
 	})();
@@ -2428,8 +2293,10 @@ html_negotiation_test() ->
     Body = maps:get(<<"body">>, HTML),
     ?assert(binary:match(Body, <<"~arweave@2.9">>) =/= nomatch),
     ?assert(binary:match(Body, <<"HBExampleRunner">>) =/= nomatch),
-    ?assert(binary:match(Body, <<"hb-docs-action-grid">>) =/= nomatch),
-    ?assert(binary:match(Body, <<"data-template=\"/~arweave@2.9/tx\"">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"<h2 id=\"schema\">Schema</h2><table>">>) =/= nomatch),
+    ?assertEqual(nomatch, binary:match(Body, <<"<h2 id=\"actions\">Actions</h2>">>)),
+    ?assertEqual(nomatch, binary:match(Body, <<"hb-docs-action-grid">>)),
+    ?assertEqual(nomatch, binary:match(Body, <<"data-template=\"/~arweave@2.9/tx\"">>)),
     ?assert(binary:match(Body, <<"/info/assets/site.css">>) =/= nomatch),
     ?assert(binary:match(Body, <<"/info/assets/prism-core.min.js">>) =/= nomatch),
     ?assert(binary:match(Body, <<"class=\"language-bash\"">>) =/= nomatch).
@@ -2438,7 +2305,10 @@ message_markdown_rendering_test() ->
     {ok, HTML} = device_info(?MESSAGE_DEVICE, #{ <<"accept">> => <<"text/html">> }, #{}),
     Body = maps:get(<<"body">>, HTML),
     ?assert(binary:match(Body, <<"hb-docs-section-index">>) =/= nomatch),
-    ?assert(binary:match(Body, <<"data-template=\"/~message@1.0/{field}\"">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"<h2 id=\"schema\">Schema</h2><table>">>) =/= nomatch),
+    ?assertEqual(nomatch, binary:match(Body, <<"data-template=\"/~message@1.0/{field}\"">>)),
+    ?assertEqual(nomatch, binary:match(Body, <<"<h2 id=\"actions\">Actions</h2>">>)),
+    ?assertEqual(nomatch, binary:match(Body, <<"hb-docs-action-grid">>)),
     ?assertEqual(nomatch, binary:match(Body, <<"Open full spec">>)),
     ?assertEqual(nomatch, binary:match(Body, <<"**Device name">>)),
     ?assert(binary:match(Body, <<"<strong>Device name:</strong>">>) =/= nomatch),
