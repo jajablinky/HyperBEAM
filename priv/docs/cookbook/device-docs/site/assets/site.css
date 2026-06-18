@@ -93,6 +93,34 @@
   --shadow-xs: 0 1px 2px 0 var(--shadow-soft);
   --shadow-sm: 0 1px 5px 0 var(--shadow-soft);
   --shadow-lg: 0 3.5px 7.5px 0 var(--shadow-soft);
+
+  /* Brand palette — parameter tags & device card gradients */
+  --brand-red: #cd0d34;
+  --brand-coral: #fd9069;
+  --brand-lime: #d3ff8c;
+  --brand-blue: #0072c8;
+  --brand-pink-soft: #ffcdcd;
+  --brand-mint-soft: #cdffd9;
+  --brand-lavender-soft: #bdc9ff;
+  --brand-sky-soft: #cdeeff;
+
+  --tag-required-fg: var(--brand-red);
+  --tag-required-bg: var(--brand-pink-soft);
+  --tag-required-border: color-mix(in srgb, var(--brand-red) 35%, transparent);
+  --tag-optional-fg: var(--brand-blue);
+  --tag-optional-bg: var(--brand-sky-soft);
+  --tag-optional-border: color-mix(in srgb, var(--brand-blue) 28%, transparent);
+  --tag-accent-fg: var(--brand-blue);
+  --tag-accent-bg: var(--brand-lavender-soft);
+}
+
+.eyebrow {
+  margin: 0 0 0.5rem;
+  color: var(--text-tertiary);
+  font-size: var(--text-caption);
+  font-weight: 400;
+  line-height: 1.25;
+  letter-spacing: 0;
 }
 
 [data-theme='dark'] {
@@ -1361,12 +1389,21 @@ body.close .content {
   text-decoration: underline !important;
   text-underline-offset: 2px;
   text-decoration-color: color-mix(in oklab, var(--text) 35%, transparent);
-  transition: color 100ms ease;
+  transition: color 100ms ease, opacity 100ms ease;
 }
 
 .markdown-section a:hover {
   color: var(--text) !important;
   text-decoration-color: var(--text) !important;
+  opacity: 0.72;
+}
+
+.markdown-section a.anchor:hover,
+.markdown-section .hb-docs-section-index a:hover,
+.markdown-section a.hb-docs-card:hover,
+.markdown-section a.hb-docs-guide-list-link:hover,
+.markdown-section a.docs-footer-link:hover {
+  opacity: 1;
 }
 
 .markdown-section a.anchor {
