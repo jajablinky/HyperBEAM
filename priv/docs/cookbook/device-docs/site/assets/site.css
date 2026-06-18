@@ -1339,6 +1339,14 @@ body.close .content {
   padding-left: 1.5em;
 }
 
+.markdown-section ol {
+  padding-left: 2.35em;
+}
+
+.markdown-section ol > li {
+  padding-inline-start: 0.45em;
+}
+
 .markdown-section li {
   margin: 0.5rem 0;
 }

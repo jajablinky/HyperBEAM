@@ -1139,7 +1139,7 @@ boilerplate_page_entry({Section, RelPath, FallbackTitle}) ->
     #{
         <<"section">> => Section,
         <<"title">> => markdown_title(Markdown, FallbackTitle),
-        <<"summary">> => markdown_summary(Markdown),
+        <<"summary">> => boilerplate_card_summary(RelPath, Markdown),
         <<"href">> => boilerplate_href(RelPath),
         <<"source">> => Source,
         <<"source-relative">> => RelPath
@@ -1151,6 +1151,27 @@ boilerplate_href(<<"docs/", Rest/binary>>) ->
 boilerplate_href(RelPath) ->
     WithoutExt = strip_suffix(RelPath, <<".md">>),
     <<"/info/boilerplate/", WithoutExt/binary>>.
+
+boilerplate_card_summary(RelPath, Markdown) ->
+    case boilerplate_card_summary_override(RelPath) of
+        undefined ->
+            markdown_summary(Markdown);
+        Summary ->
+            Summary
+    end.
+
+boilerplate_card_summary_override(<<"docs/introduction/index.md">>) ->
+    <<"The conceptual start for this corpus: HyperBEAM, AO-Core, devices, and pathing.">>;
+boilerplate_card_summary_override(<<"docs/introduction/what-is-hyperbeam.md">>) ->
+    <<"The production-ready AO-Core runtime that powers decentralized compute on Erlang/OTP.">>;
+boilerplate_card_summary_override(<<"docs/introduction/what-is-ao-core.md">>) ->
+    <<"The HTTP-native protocol for decentralized computation on the Arweave permaweb.">>;
+boilerplate_card_summary_override(<<"docs/introduction/ao-devices.md">>) ->
+    <<"Pluggable modules that define how messages are processed in HyperBEAM.">>;
+boilerplate_card_summary_override(<<"docs/introduction/pathing-in-ao-core.md">>) ->
+    <<"How HyperPATH URLs address messages, devices, and computation results.">>;
+boilerplate_card_summary_override(_) ->
+    undefined.
 
 strip_suffix(Bin, Suffix) ->
     case ends_with(Bin, Suffix) of
@@ -1416,7 +1437,9 @@ render_spec_section_page_html(Payload) ->
             <<"<p class=\"eyebrow\">Specification</p><h1>">>, esc(DeviceID),
             <<" / ">>, esc(spec_section_nav_label(Title)), <<"</h1>">>,
             spec_tx_link_paragraph(Spec),
-            render_markdown_with_heading_ids(spec_section_markdown(Spec, SectionId))
+            render_markdown_with_heading_ids(spec_section_markdown(Spec, SectionId), #{
+                <<"strip-numbered-headings">> => true
+            })
         ],
     docs_page_html(<<"HyperBEAM Spec">>, ActivePath, device_sidebar(Data, ActivePath), Content).
 
@@ -1452,7 +1475,10 @@ render_recipe_html(Payload) ->
             <<"<p class=\"eyebrow\">">>,
             esc(maps:get(<<"source-relative">>, Recipe, <<>>)),
             <<"</p>">>,
-            render_markdown(drop_first_h1(recipe_markdown(Recipe)))
+            render_markdown(
+                drop_first_h1(recipe_markdown(Recipe)),
+                #{ <<"source-relative">> => maps:get(<<"source-relative">>, Recipe, undefined) }
+            )
         ],
     docs_page_html(<<"HyperBEAM Recipe">>, ActivePath, device_sidebar(Data, ActivePath), Content).
 
@@ -1526,7 +1552,10 @@ render_node_boilerplate_page_html(Data) ->
             <<"<p class=\"eyebrow\">Guide</p><h1>">>,
             esc(maps:get(<<"title">>, Data, <<>>)),
             <<"</h1>">>,
-            render_markdown(drop_first_h1(Markdown))
+            render_markdown(
+                drop_first_h1(Markdown),
+                #{ <<"source-relative">> => maps:get(<<"source-relative">>, Data, undefined) }
+            )
         ],
     docs_page_html(<<"HyperBEAM Guide">>, ActivePath, node_sidebar([], ActivePath), Content).
 
@@ -1841,6 +1870,7 @@ body.hb-docs-protocol .eyebrow {
   padding: 0;
   border: none;
   background: var(--bg-muted);
+  min-height: 160px;
 }
 .hb-docs-recipe-card:hover {
   background: var(--bg-hover);
@@ -1848,8 +1878,8 @@ body.hb-docs-protocol .eyebrow {
 .hb-docs-recipe-card-header {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
-  padding: 10px 12px;
+  gap: 6px;
+  padding: 12px 12px 4px;
 }
 .hb-docs-recipe-card-icon {
   display: flex;
@@ -1860,8 +1890,8 @@ body.hb-docs-protocol .eyebrow {
   color: var(--text-secondary);
 }
 .hb-docs-recipe-card-icon svg {
-  width: 18px;
-  height: 18px;
+  width: 15px;
+  height: 15px;
 }
 .hb-docs-recipe-card-title {
   flex: 1 1 auto;
@@ -1880,12 +1910,12 @@ body.hb-docs-protocol .eyebrow {
   flex-direction: column;
   flex: 1 1 auto;
   gap: 0;
-  padding: 14px;
+  padding: 0 12px 12px;
   min-height: 0;
 }
 .hb-docs-recipe-card-desc {
   flex: 1 1 auto;
-  margin-top: 6px;
+  margin-top: 0;
   color: var(--text-secondary);
   opacity: 0.72;
   font-size: var(--text-caption);
@@ -1902,9 +1932,10 @@ body.hb-docs-protocol .eyebrow {
   gap: 8px;
   flex: 0 0 auto;
   margin-top: auto;
-  padding-top: 14px;
+  padding-top: 10px;
 }
 .hb-docs-recipe-card-cta {
+  font-size: var(--text-ui);
   font-weight: 600;
   color: var(--text);
   letter-spacing: -0.01em;
@@ -2275,7 +2306,7 @@ boilerplate_section_block(Section, Pages, Heading) ->
         <<"<section class=\"hb-docs-guide-section\">">>,
         ["<", Tag, ">", esc(Section), "</", Tag, ">"],
         <<"<div class=\"hb-docs-card-grid\">">>,
-        [boilerplate_card_row(Page) || Page <- Pages],
+        [boilerplate_card_row(Page, Section) || Page <- Pages],
         <<"</div></section>">>
     ].
 
@@ -2297,7 +2328,9 @@ boilerplate_group_pages_by_section([Page | Rest], Acc) ->
             boilerplate_group_pages_by_section(Rest, [{Section, [Page]} | Acc])
     end.
 
-boilerplate_card_row(Page) ->
+boilerplate_card_row(Page, Section) when Section =:= <<"Recipes">>; Section =:= <<"Device Recipes">> ->
+    boilerplate_recipe_card_row(Page);
+boilerplate_card_row(Page, _Section) ->
     [
         <<"<a class=\"hb-docs-card\" href=\"">>,
         esc(maps:get(<<"href">>, Page, <<>>)),
@@ -2305,6 +2338,37 @@ boilerplate_card_row(Page) ->
         <<"</strong><span>">>, esc(card_summary(maps:get(<<"summary">>, Page, <<>>))),
         <<"</span></a>">>
     ].
+
+boilerplate_recipe_card_row(Page) ->
+    Title = maps:get(<<"title">>, Page, <<>>),
+    Slug = boilerplate_page_slug(Page),
+    Summary = card_summary(maps:get(<<"summary">>, Page, <<>>)),
+    [
+        <<"<a class=\"hb-docs-card hb-docs-recipe-card\" href=\"">>,
+        esc(maps:get(<<"href">>, Page, <<>>)),
+        <<"\">">>,
+        <<"<div class=\"hb-docs-recipe-card-header\">">>,
+        recipe_icon_markup(Slug, #{<<"title">> => Title}),
+        <<"<strong class=\"hb-docs-recipe-card-title\">">>,
+        esc(Title),
+        <<"</strong></div>">>,
+        <<"<div class=\"hb-docs-recipe-card-body\">">>,
+        <<"<span class=\"hb-docs-recipe-card-desc\">">>,
+        esc(Summary),
+        <<"</span><div class=\"hb-docs-recipe-card-footer\">">>,
+        <<"<span class=\"hb-docs-recipe-card-cta\">Open &rarr;</span>">>,
+        <<"</div></div></a>">>
+    ].
+
+boilerplate_page_slug(Page) ->
+    Href = maps:get(<<"href">>, Page, <<>>),
+    case binary:split(Href, <<"/">>, [global]) of
+        Parts ->
+            case lists:reverse(Parts) of
+                [Slug | _] when Slug =/= <<>> -> Slug;
+                _ -> <<"guide">>
+            end
+    end.
 
 concept_rows(Concepts) ->
     [
@@ -2487,7 +2551,9 @@ render_spec_body(Spec) ->
         spec_tx_link_paragraph(Spec),
         case {Status, spec_markdown(Spec)} of
             {<<"present">>, Markdown} when byte_size(Markdown) > 0 ->
-                render_markdown_with_heading_ids(drop_first_h1(Markdown));
+                render_markdown_with_heading_ids(drop_first_h1(Markdown), #{
+                    <<"strip-numbered-headings">> => true
+                });
             _ ->
                 [<<"<p>">>, esc(maps:get(<<"summary">>, Spec, <<>>)), <<"</p>">>]
         end
@@ -3495,43 +3561,49 @@ docs_asset_content_type(Parts) ->
     end.
 
 render_markdown(Markdown) ->
+    render_markdown(Markdown, #{}).
+
+render_markdown(Markdown, Opts) ->
     Lines = binary:split(Markdown, <<"\n">>, [global]),
-    iolist_to_binary(render_markdown_lines(Lines, [], [], false, #{})).
+    iolist_to_binary(render_markdown_lines(Lines, [], [], false, #{}, Opts)).
 
 render_markdown_with_heading_ids(Markdown) ->
-    Lines = binary:split(Markdown, <<"\n">>, [global]),
-    iolist_to_binary(render_markdown_lines(Lines, [], [], true, #{})).
+    render_markdown_with_heading_ids(Markdown, #{}).
 
-render_markdown_lines([], Para, Acc, _AddHeadingIds, _UsedIds) ->
-    lists:reverse([flush_paragraph(Para) | Acc]);
-render_markdown_lines([Line | Rest], Para, Acc, AddHeadingIds, UsedIds) ->
+render_markdown_with_heading_ids(Markdown, Opts) ->
+    Lines = binary:split(Markdown, <<"\n">>, [global]),
+    iolist_to_binary(render_markdown_lines(Lines, [], [], true, #{}, Opts)).
+
+render_markdown_lines([], Para, Acc, _AddHeadingIds, _UsedIds, Opts) ->
+    lists:reverse([flush_paragraph(Para, Opts) | Acc]);
+render_markdown_lines([Line | Rest], Para, Acc, AddHeadingIds, UsedIds, Opts) ->
     Trim = trim(Line),
     case fence_language(Trim) of
         {ok, Lang} ->
             {CodeLines, After} = take_code_block(Rest, []),
             Block = render_code_block(Lang, lists:reverse(CodeLines)),
-            render_markdown_lines(After, [], [Block, flush_paragraph(Para) | Acc], AddHeadingIds, UsedIds);
+            render_markdown_lines(After, [], [Block, flush_paragraph(Para, Opts) | Acc], AddHeadingIds, UsedIds, Opts);
         false ->
-            case table_block(Trim, Rest) of
+            case table_block(Trim, Rest, Opts) of
                 {ok, Table, AfterTable} ->
-                    render_markdown_lines(AfterTable, [], [Table, flush_paragraph(Para) | Acc], AddHeadingIds, UsedIds);
+                    render_markdown_lines(AfterTable, [], [Table, flush_paragraph(Para, Opts) | Acc], AddHeadingIds, UsedIds, Opts);
                 false ->
                     case {Trim, heading(Trim), bullet_text(Trim), numbered_text(Trim)} of
                         {<<>>, _, _, _} ->
-                            render_markdown_lines(Rest, [], [flush_paragraph(Para) | Acc], AddHeadingIds, UsedIds);
+                            render_markdown_lines(Rest, [], [flush_paragraph(Para, Opts) | Acc], AddHeadingIds, UsedIds, Opts);
                         {_, {Level, Text}, _, _} ->
-                            {H, NewUsedIds} = render_heading(Level, Text, AddHeadingIds, UsedIds),
-                            render_markdown_lines(Rest, [], [H, flush_paragraph(Para) | Acc], AddHeadingIds, NewUsedIds);
+                            {H, NewUsedIds} = render_heading(Level, Text, AddHeadingIds, UsedIds, Opts),
+                            render_markdown_lines(Rest, [], [H, flush_paragraph(Para, Opts) | Acc], AddHeadingIds, NewUsedIds, Opts);
                         {_, _, {ok, Text}, _} ->
                             {Items, AfterList} = take_list_block(Rest, unordered, [Text], []),
-                            List = render_list(<<"ul">>, Items),
-                            render_markdown_lines(AfterList, [], [List, flush_paragraph(Para) | Acc], AddHeadingIds, UsedIds);
+                            List = render_list(<<"ul">>, Items, Opts),
+                            render_markdown_lines(AfterList, [], [List, flush_paragraph(Para, Opts) | Acc], AddHeadingIds, UsedIds, Opts);
                         {_, _, _, {ok, Text}} ->
                             {Items, AfterList} = take_list_block(Rest, ordered, [Text], []),
-                            List = render_list(<<"ol">>, Items),
-                            render_markdown_lines(AfterList, [], [List, flush_paragraph(Para) | Acc], AddHeadingIds, UsedIds);
+                            List = render_list(<<"ol">>, Items, Opts),
+                            render_markdown_lines(AfterList, [], [List, flush_paragraph(Para, Opts) | Acc], AddHeadingIds, UsedIds, Opts);
                         _ ->
-                            render_markdown_lines(Rest, [Trim | Para], Acc, AddHeadingIds, UsedIds)
+                            render_markdown_lines(Rest, [Trim | Para], Acc, AddHeadingIds, UsedIds, Opts)
                     end
             end
     end.
@@ -3544,27 +3616,36 @@ take_code_block([Line | Rest], Acc) ->
         false -> take_code_block(Rest, [Line | Acc])
     end.
 
-flush_paragraph([]) ->
+flush_paragraph([], _Opts) ->
     [];
-flush_paragraph(Lines) ->
+flush_paragraph(Lines, Opts) ->
     Text = iolist_to_binary(lists:join(<<" ">>, lists:reverse(Lines))),
-    [<<"<p>">>, render_inline(Text), <<"</p>">>].
+    [<<"<p>">>, render_inline(Text, Opts), <<"</p>">>].
 
-render_heading(Level0, Text, AddHeadingIds, UsedIds) ->
+render_heading(Level0, Text, AddHeadingIds, UsedIds, Opts) ->
     Level = max(3, min(6, Level0 + 2)),
     Tag = integer_to_binary(Level),
+    DisplayText = heading_display_text(Text, Opts),
     case AddHeadingIds =:= true andalso Level0 =:= 2 of
         true ->
             Plain = strip_inline_markdown(Text),
             {HeadingId, NewUsedIds} = unique_heading_slug(Plain, UsedIds),
             Heading = [
                 <<"<h">>, Tag, <<" id=\"">>, esc(HeadingId), <<"\">">>,
-                render_inline(Text),
+                render_inline(DisplayText, Opts),
                 <<"</h">>, Tag, <<">">>
             ],
             {Heading, NewUsedIds};
         false ->
-            {[<<"<h">>, Tag, <<">">>, render_inline(Text), <<"</h">>, Tag, <<">">>], UsedIds}
+            {[<<"<h">>, Tag, <<">">>, render_inline(DisplayText, Opts), <<"</h">>, Tag, <<">">>], UsedIds}
+    end.
+
+heading_display_text(Text, Opts) ->
+    case maps:get(<<"strip-numbered-headings">>, Opts, false) of
+        true ->
+            spec_section_nav_label(strip_inline_markdown(Text));
+        false ->
+            Text
     end.
 
 unique_heading_slug(Text, UsedIds) ->
@@ -3629,16 +3710,16 @@ render_code_block(Lang, Lines) ->
         esc(NormLang), <<"\">">>, esc(Text), <<"</code></pre>">>
     ].
 
-table_block(Header, [Separator | Rest]) ->
+table_block(Header, [Separator | Rest], Opts) ->
     TrimSeparator = trim(Separator),
     case is_table_row(Header) andalso is_table_separator(TrimSeparator) of
         true ->
             {Rows, After} = take_table_rows(Rest, []),
-            {ok, render_table([Header | Rows]), After};
+            {ok, render_table([Header | Rows], Opts), After};
         false ->
             false
     end;
-table_block(_Header, _Rest) ->
+table_block(_Header, _Rest, _Opts) ->
     false.
 
 is_table_row(Line) ->
@@ -3664,20 +3745,20 @@ take_table_rows([Line | Rest], Acc) ->
 take_table_rows([], Acc) ->
     {lists:reverse(Acc), []}.
 
-render_table([Header | Rows]) ->
+render_table([Header | Rows], Opts) ->
     HeaderCells = parse_table_row(Header),
     [
         <<"<table><thead>">>,
-        render_table_row(<<"th">>, HeaderCells),
+        render_table_row(<<"th">>, HeaderCells, Opts),
         <<"</thead><tbody>">>,
-        [render_table_row(<<"td">>, parse_table_row(Row)) || Row <- Rows],
+        [render_table_row(<<"td">>, parse_table_row(Row), Opts) || Row <- Rows],
         <<"</tbody></table>">>
     ].
 
-render_table_row(Tag, Cells) ->
+render_table_row(Tag, Cells, Opts) ->
     [
         <<"<tr>">>,
-        [[<<"<">>, Tag, <<">">>, render_inline(Cell), <<"</">>, Tag, <<">">>] || Cell <- Cells],
+        [[<<"<">>, Tag, <<">">>, render_inline(Cell, Opts), <<"</">>, Tag, <<">">>] || Cell <- Cells],
         <<"</tr>">>
     ].
 
@@ -3696,40 +3777,175 @@ parse_table_row(Row) ->
     [trim(Cell) || Cell <- binary:split(WithoutOuter, <<"|">>, [global])].
 
 render_inline(Text) ->
-    render_inline(Text, []).
+    render_inline(Text, #{}).
 
-render_inline(<<>>, Acc) ->
+render_inline(Text, Opts) ->
+    render_inline(Text, [], Opts).
+
+render_inline(<<>>, Acc, _Opts) ->
     lists:reverse(Acc);
-render_inline(Text, Acc) ->
+render_inline(Text, Acc, Opts) ->
     case inline_markers(Text) of
         [] ->
             lists:reverse([esc(Text) | Acc]);
-        [{Pos, Kind, Marker} | _] ->
+        [{Pos, Kind, Payload} | _] ->
             Prefix = binary:part(Text, 0, Pos),
-            AfterStartPos = Pos + byte_size(Marker),
-            AfterStart = binary:part(Text, AfterStartPos, byte_size(Text) - AfterStartPos),
-            case binary:match(AfterStart, Marker) of
-                {EndPos, _Len} ->
-                    Inner = binary:part(AfterStart, 0, EndPos),
-                    RestPos = EndPos + byte_size(Marker),
-                    Rest = binary:part(AfterStart, RestPos, byte_size(AfterStart) - RestPos),
-                    Node =
-                        case Kind of
-                            code -> [<<"<code>">>, esc(Inner), <<"</code>">>];
-                            strong -> [<<"<strong>">>, render_inline(Inner), <<"</strong>">>]
-                        end,
-                    render_inline(Rest, [Node, esc(Prefix) | Acc]);
-                nomatch ->
-                    render_inline(AfterStart, [esc(Marker), esc(Prefix) | Acc])
+            case Kind of
+                link ->
+                    {Label, Url, TotalLen} = Payload,
+                    RestPos = Pos + TotalLen,
+                    Rest = binary:part(Text, RestPos, byte_size(Text) - RestPos),
+                    Href = resolve_markdown_href(Url, Opts),
+                    Node = [
+                        <<"<a href=\"">>, esc(Href), <<"\">">>,
+                        render_inline(Label, Opts),
+                        <<"</a>">>
+                    ],
+                    render_inline(Rest, [Node, esc(Prefix) | Acc], Opts);
+                code ->
+                    Marker = Payload,
+                    AfterStartPos = Pos + byte_size(Marker),
+                    AfterStart = binary:part(Text, AfterStartPos, byte_size(Text) - AfterStartPos),
+                    case binary:match(AfterStart, Marker) of
+                        {EndPos, _Len} ->
+                            Inner = binary:part(AfterStart, 0, EndPos),
+                            RestPos = EndPos + byte_size(Marker),
+                            Rest = binary:part(AfterStart, RestPos, byte_size(AfterStart) - RestPos),
+                            Node = [<<"<code>">>, esc(Inner), <<"</code>">>],
+                            render_inline(Rest, [Node, esc(Prefix) | Acc], Opts);
+                        nomatch ->
+                            render_inline(AfterStart, [esc(Marker), esc(Prefix) | Acc], Opts)
+                    end;
+                strong ->
+                    Marker = Payload,
+                    AfterStartPos = Pos + byte_size(Marker),
+                    AfterStart = binary:part(Text, AfterStartPos, byte_size(Text) - AfterStartPos),
+                    case binary:match(AfterStart, Marker) of
+                        {EndPos, _Len} ->
+                            Inner = binary:part(AfterStart, 0, EndPos),
+                            RestPos = EndPos + byte_size(Marker),
+                            Rest = binary:part(AfterStart, RestPos, byte_size(AfterStart) - RestPos),
+                            Node = [<<"<strong>">>, render_inline(Inner, Opts), <<"</strong>">>],
+                            render_inline(Rest, [Node, esc(Prefix) | Acc], Opts);
+                        nomatch ->
+                            render_inline(AfterStart, [esc(Marker), esc(Prefix) | Acc], Opts)
+                    end
             end
     end.
+
+resolve_markdown_href(Href, Opts) ->
+    Trim = trim(hb_util:bin(Href)),
+    case is_external_href(Trim) of
+        true ->
+            Trim;
+        <<"#", _/binary>> ->
+            Trim;
+        _ ->
+            case maps:get(<<"source-relative">>, Opts, undefined) of
+                undefined ->
+                    resolve_boilerplate_href_from_path(Trim);
+                SourceRel ->
+                    boilerplate_href(resolve_doc_relpath(Trim, SourceRel))
+            end
+    end.
+
+is_external_href(<<"http://", _/binary>>) ->
+    true;
+is_external_href(<<"https://", _/binary>>) ->
+    true;
+is_external_href(<<"mailto:", _/binary>>) ->
+    true;
+is_external_href(_) ->
+    false.
+
+resolve_boilerplate_href_from_path(<<"/", Rest/binary>>) ->
+    boilerplate_href(<<"docs/", Rest/binary>>);
+resolve_boilerplate_href_from_path(Path) ->
+    boilerplate_href(<<"docs/", Path/binary>>).
+
+resolve_doc_relpath(Href, SourceRel) ->
+    Trim = trim(hb_util:bin(Href)),
+    case Trim of
+        <<"/", Rest/binary>> ->
+            normalize_doc_relpath(<<"docs/", Rest/binary>>);
+        _ ->
+            normalize_doc_relpath(join_doc_paths(doc_dirname(SourceRel), Trim))
+    end.
+
+doc_dirname(SourceRel) ->
+    case binary:split(SourceRel, <<"/">>, [global]) of
+        [<<"docs">>] ->
+            <<"docs">>;
+        [<<"docs">> | Parts] ->
+            case Parts of
+                [] ->
+                    <<"docs">>;
+                [_File] ->
+                    <<"docs">>;
+                _ ->
+                    DirParts = lists:droplast(Parts),
+                    iolist_to_binary([<<"docs/">>, lists:join(<<"/">>, DirParts)])
+            end;
+        _ ->
+            <<"docs">>
+    end.
+
+join_doc_paths(Dir, Href) ->
+    iolist_to_binary([Dir, <<"/">>, Href]).
+
+normalize_doc_relpath(Path) ->
+    Parts = binary:split(Path, <<"/">>, [global]),
+    iolist_to_binary(lists:join(<<"/">>, normalize_doc_parts(Parts, []))).
+
+normalize_doc_parts([], Acc) ->
+    lists:reverse(Acc);
+normalize_doc_parts([<<>> | Rest], Acc) ->
+    normalize_doc_parts(Rest, Acc);
+normalize_doc_parts([<<"..">> | Rest], [_ | Acc]) ->
+    normalize_doc_parts(Rest, Acc);
+normalize_doc_parts([<<"..">> | Rest], Acc) ->
+    normalize_doc_parts(Rest, Acc);
+normalize_doc_parts([Part | Rest], Acc) ->
+    normalize_doc_parts(Rest, [Part | Acc]).
 
 inline_markers(Text) ->
     lists:keysort(
         1,
         marker_matches(Text, <<"**">>, strong) ++
-            marker_matches(Text, <<"`">>, code)
+            marker_matches(Text, <<"`">>, code) ++
+            link_marker_matches(Text)
     ).
+
+link_marker_matches(Text) ->
+    case parse_markdown_link(Text) of
+        {ok, Pos, Label, Url, TotalLen} ->
+            [{Pos, link, {Label, Url, TotalLen}}];
+        error ->
+            []
+    end.
+
+parse_markdown_link(Text) ->
+    case binary:match(Text, <<"[">>) of
+        {Pos, _} ->
+            AfterOpen = binary:part(Text, Pos + 1, byte_size(Text) - Pos - 1),
+            case binary:match(AfterOpen, <<"](">>) of
+                {LabelEnd, _} ->
+                    Label = binary:part(AfterOpen, 0, LabelEnd),
+                    AfterParen = binary:part(AfterOpen, LabelEnd + 2, byte_size(AfterOpen) - LabelEnd - 2),
+                    case binary:match(AfterParen, <<")">>) of
+                        {UrlEnd, _} ->
+                            Url = binary:part(AfterParen, 0, UrlEnd),
+                            TotalLen = 1 + LabelEnd + 2 + UrlEnd + 1,
+                            {ok, Pos, Label, Url, TotalLen};
+                        nomatch ->
+                            error
+                    end;
+                nomatch ->
+                    error
+            end;
+        nomatch ->
+            error
+    end.
 
 marker_matches(Text, Marker, Kind) ->
     case binary:match(Text, Marker) of
@@ -3835,11 +4051,10 @@ summary_from_lines([]) ->
     <<>>;
 summary_from_lines([Line | Rest]) ->
     Trim = trim(Line),
-    case Trim of
-        <<>> -> summary_from_lines(Rest);
-        <<"Source tests:", _/binary>> -> summary_from_lines(Rest);
-        <<"Prerequisites:", _/binary>> -> summary_from_lines(Rest);
-        _ ->
+    case summary_line_usable(Trim) of
+        false ->
+            summary_from_lines(Rest);
+        true ->
             case fence_language(Trim) of
                 {ok, _Lang} ->
                     {_CodeLines, AfterFence} = take_code_block(Rest, []),
@@ -3851,6 +4066,19 @@ summary_from_lines([Line | Rest]) ->
                     end
             end
     end.
+
+summary_line_usable(<<>>) ->
+    false;
+summary_line_usable(<<"Source tests:", _/binary>>) ->
+    false;
+summary_line_usable(<<"Prerequisites:", _/binary>>) ->
+    false;
+summary_line_usable(<<">", _/binary>>) ->
+    false;
+summary_line_usable(<<"<", _/binary>>) ->
+    false;
+summary_line_usable(_) ->
+    true.
 
 strip_inline_markdown(Text) ->
     NoTicks = binary:replace(Text, <<"`">>, <<>>, [global]),
@@ -3974,10 +4202,10 @@ is_block_start(Trim) ->
 finish_list_item(Lines) ->
     iolist_to_binary(lists:join(<<" ">>, lists:reverse(Lines))).
 
-render_list(Tag, Items) ->
+render_list(Tag, Items, Opts) ->
     [
         <<"<">>, Tag, <<">">>,
-        [[<<"<li>">>, render_inline(Item), <<"</li>">>] || Item <- Items],
+        [[<<"<li>">>, render_inline(Item, Opts), <<"</li>">>] || Item <- Items],
         <<"</">>, Tag, <<">">>
     ].
 
@@ -4165,7 +4393,8 @@ message_markdown_rendering_test() ->
     ?assertEqual(nomatch, binary:match(SpecBody, <<"**Dispatch shape">>)),
     ?assertEqual(nomatch, binary:match(SpecBody, <<"PRESENT">>)),
     ?assertEqual(nomatch, binary:match(SpecBody, <<"specs/message@1.0.md">>)),
-    ?assert(binary:match(SpecBody, <<"<h4 id=\"1-overview\">">>) =/= nomatch),
+    ?assert(binary:match(SpecBody, <<"<h4 id=\"1-overview\">Overview</h4>">>) =/= nomatch),
+    ?assertEqual(nomatch, binary:match(SpecBody, <<"<h4 id=\"1-overview\">1. Overview</h4>">>)),
     ?assert(binary:match(SpecBody, <<"<li class=\"active\"><a href=\"/~message@1.0/info/spec\">">>) =/= nomatch),
     ?assert(binary:match(SpecBody, <<"href=\"/~message@1.0/info/spec/1-overview\"">>) =/= nomatch),
     ?assert(binary:match(SpecBody, <<"href=\"/~message@1.0/info/spec/4-resolved-keys-normative\"">>) =/= nomatch),
@@ -4382,7 +4611,23 @@ boilerplate_routes_test() ->
     ),
     Body = maps:get(<<"body">>, HTML),
     ?assert(binary:match(Body, <<"What is HyperBEAM">>) =/= nomatch),
-    ?assert(binary:match(Body, <<"HyperBEAM is the primary">>) =/= nomatch).
+    ?assert(binary:match(Body, <<"HyperBEAM is the primary">>) =/= nomatch),
+    {ok, IntroHTML} = node_info_route(
+        [<<"boilerplate">>, <<"introduction">>, <<"index">>],
+        #{ <<"accept">> => <<"text/html">> },
+        #{}
+    ),
+    IntroBody = maps:get(<<"body">>, IntroHTML),
+    ?assert(binary:match(IntroBody, <<"href=\"/info/boilerplate/introduction/what-is-hyperbeam\"">>) =/= nomatch),
+    ?assert(binary:match(IntroBody, <<"href=\"/info/boilerplate/getting-started/example-style\"">>) =/= nomatch),
+    ?assert(binary:match(IntroBody, <<"href=\"/info/boilerplate/devices/index\"">>) =/= nomatch),
+    ?assertEqual(nomatch, binary:match(IntroBody, <<"(what-is-hyperbeam.md)">>)),
+    {ok, GuidesHTML} = node_info_route([<<"boilerplate">>], #{ <<"accept">> => <<"text/html">> }, #{}),
+    GuidesBody = maps:get(<<"body">>, GuidesHTML),
+    ?assert(binary:match(GuidesBody, <<"hb-docs-recipe-card-title\">Device Recipe Format</strong>">>) =/= nomatch),
+    ?assert(binary:match(GuidesBody, <<"hb-docs-recipe-card-cta\">Open &rarr;</span>">>) =/= nomatch),
+    ?assertEqual(nomatch, binary:match(GuidesBody, <<"Merged from the HyperBEAM">>)),
+    ?assert(binary:match(GuidesBody, <<"The HTTP-native protocol for decentralized computation">>) =/= nomatch).
 
 cookbook_device_contract_test() ->
     Data = device_info_data(?COOKBOOK_DEVICE, #{}),
