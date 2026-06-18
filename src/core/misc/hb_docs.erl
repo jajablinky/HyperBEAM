@@ -457,13 +457,15 @@ html_response(recipe, Data) ->
 html_response(implementations, Data) ->
     html_doc_response(render_implementations_html(Data));
 html_response(node_schema, Data) ->
-    html_doc_response(render_node_component_html(<<"Schema">>, Data));
+    html_doc_response(render_node_component_html(<<"Schema">>, <<"/info/schema">>, Data));
 html_response(node_spec, Data) ->
-    html_doc_response(render_node_component_html(<<"Spec">>, Data));
+    html_doc_response(render_node_component_html(<<"Spec">>, <<"/info/spec">>, Data));
 html_response(node_recipes, Data) ->
-    html_doc_response(render_node_component_html(<<"Recipes">>, Data));
+    html_doc_response(render_node_component_html(<<"Recipes">>, <<"/info/recipes">>, Data));
 html_response(node_implementations, Data) ->
-    html_doc_response(render_node_component_html(<<"Implementations">>, Data));
+    html_doc_response(
+        render_node_component_html(<<"Implementations">>, <<"/info/implementations">>, Data)
+    );
 html_response(node_boilerplate, Data) ->
     html_doc_response(render_node_boilerplate_html(Data));
 html_response(node_boilerplate_page, Data) ->
@@ -1247,15 +1249,14 @@ render_node_html(Data) ->
             <<"</p><p class=\"hb-docs-renderer-note\">Rendered by <a href=\"">>,
             esc(maps:get(<<"node-renderer">>, Renderer)),
             <<"\">~">>, esc(maps:get(<<"device">>, Renderer)), <<"</a>.</p>">>,
-            <<"<h2>Guides</h2><div class=\"hb-docs-card-grid\">">>,
-            boilerplate_card_rows(Boilerplate),
-            <<"</div>">>,
+            <<"<h2>Guides</h2>">>,
+            boilerplate_section_cards(Boilerplate, h3),
             <<"<h2>Devices</h2><div class=\"hb-docs-card-grid\">">>,
             [device_row(Device) || Device <- Devices],
             <<"</div><h2>Concepts</h2>">>,
             concept_rows(maps:get(<<"concepts">>, Data))
         ],
-    docs_page_html(<<"HyperBEAM Node Info">>, node_sidebar(Devices), Content).
+    docs_page_html(<<"HyperBEAM Node Info">>, <<"/info">>, node_sidebar(Devices, <<"/info">>), Content).
 
 render_device_html(Data) ->
     Device = maps:get(<<"device">>, Data),
@@ -1281,7 +1282,12 @@ render_device_html(Data) ->
             <<"<h2>Runnable Workflows</h2>">>,
             recipe_rows(DeviceID, Recipes)
         ],
-    docs_page_html(<<"HyperBEAM Device Info">>, device_sidebar(Data), Content).
+    docs_page_html(
+        <<"HyperBEAM Device Info">>,
+        device_info_path(DeviceID),
+        device_sidebar(Data, device_info_path(DeviceID)),
+        Content
+    ).
 
 render_schema_index_html(Data) ->
     Device = maps:get(<<"device">>, Data),
@@ -1296,7 +1302,12 @@ render_schema_index_html(Data) ->
             schema_rows(DeviceID, Schema, SchemaOrder),
             <<"</tbody></table>">>
         ],
-    docs_page_html(<<"HyperBEAM Schema">>, device_sidebar(Data), Content).
+    docs_page_html(
+        <<"HyperBEAM Schema">>,
+        device_schema_path(DeviceID),
+        device_sidebar(Data, device_schema_path(DeviceID)),
+        Content
+    ).
 
 render_schema_key_html(Payload) ->
     Data = maps:get(<<"device-data">>, Payload),
@@ -1313,7 +1324,12 @@ render_schema_key_html(Payload) ->
             <<"</p><h2>Parameters</h2>">>,
             params_table(DeviceID, Key, Params)
         ],
-    docs_page_html(<<"HyperBEAM Schema Key">>, device_sidebar(Data), Content).
+    docs_page_html(
+        <<"HyperBEAM Schema Key">>,
+        device_schema_key_path(DeviceID, Key),
+        device_sidebar(Data, device_schema_key_path(DeviceID, Key)),
+        Content
+    ).
 
 render_schema_parameter_html(Payload) ->
     Data = maps:get(<<"device-data">>, Payload),
@@ -1341,7 +1357,12 @@ render_schema_parameter_html(Payload) ->
             esc(maps:get(<<"example">>, ParamSchema, <<>>)),
             <<"</code></td></tr></tbody></table>">>
         ],
-    docs_page_html(<<"HyperBEAM Schema Parameter">>, device_sidebar(Data), Content).
+    docs_page_html(
+        <<"HyperBEAM Schema Parameter">>,
+        device_schema_key_path(DeviceID, Key),
+        device_sidebar(Data, device_schema_key_path(DeviceID, Key)),
+        Content
+    ).
 
 render_spec_html(Data) ->
     Device = maps:get(<<"device">>, Data),
@@ -1352,7 +1373,12 @@ render_spec_html(Data) ->
             <<" spec</h1>">>,
             render_spec_body(maps:get(<<"spec">>, Data, #{}))
         ],
-    docs_page_html(<<"HyperBEAM Spec">>, device_sidebar(Data), Content).
+    docs_page_html(
+        <<"HyperBEAM Spec">>,
+        device_spec_path(DeviceID),
+        device_sidebar(Data, device_spec_path(DeviceID)),
+        Content
+    ).
 
 render_recipes_html(Data) ->
     Device = maps:get(<<"device">>, Data),
@@ -1366,11 +1392,20 @@ render_recipes_html(Data) ->
             <<"</div>">>,
             recipe_rows(DeviceID, Recipes)
         ],
-    docs_page_html(<<"HyperBEAM Recipes">>, device_sidebar(Data), Content).
+    docs_page_html(
+        <<"HyperBEAM Recipes">>,
+        device_recipes_path(DeviceID),
+        device_sidebar(Data, device_recipes_path(DeviceID)),
+        Content
+    ).
 
 render_recipe_html(Payload) ->
     Data = maps:get(<<"device-data">>, Payload),
+    Device = maps:get(<<"device">>, Payload),
+    DeviceID = maps:get(<<"id">>, Device),
+    Slug = maps:get(<<"slug">>, Payload),
     Recipe = maps:get(<<"recipe">>, Payload),
+    ActivePath = device_recipe_path(DeviceID, Slug),
     Content =
         [
             <<"<article class=\"recipe markdown-section\">">>,
@@ -1380,7 +1415,7 @@ render_recipe_html(Payload) ->
             render_markdown(recipe_markdown(Recipe)),
             <<"</article>">>
         ],
-    docs_page_html(<<"HyperBEAM Recipe">>, device_sidebar(Data), Content).
+    docs_page_html(<<"HyperBEAM Recipe">>, ActivePath, device_sidebar(Data, ActivePath), Content).
 
 render_implementations_html(Data) ->
     Device = maps:get(<<"device">>, Data),
@@ -1403,9 +1438,14 @@ render_implementations_html(Data) ->
             ],
             <<"</tbody></table>">>
         ],
-    docs_page_html(<<"HyperBEAM Implementations">>, device_sidebar(Data), Content).
+    docs_page_html(
+        <<"HyperBEAM Implementations">>,
+        device_implementations_path(DeviceID),
+        device_sidebar(Data, device_implementations_path(DeviceID)),
+        Content
+    ).
 
-render_node_component_html(Title, Data) ->
+render_node_component_html(Title, ActivePath, Data) ->
     Devices = maps:get(<<"devices">>, Data, []),
     Content =
         [
@@ -1423,21 +1463,25 @@ render_node_component_html(Title, Data) ->
             ],
             <<"</div>">>
         ],
-    docs_page_html(<<"HyperBEAM Node Index">>, node_sidebar_from_component(Devices), Content).
+    docs_page_html(
+        <<"HyperBEAM Node Index">>, ActivePath, node_sidebar_from_component(Devices, ActivePath), Content
+    ).
 
 render_node_boilerplate_html(Data) ->
     Content =
         [
             <<"<p class=\"eyebrow\">Node</p><h1>Guides</h1><p>">>,
             esc(maps:get(<<"summary">>, Data, <<>>)),
-            <<"</p><div class=\"hb-docs-card-grid\">">>,
-            boilerplate_card_rows(Data),
-            <<"</div>">>
+            <<"</p>">>,
+            boilerplate_section_cards(Data, h2)
         ],
-    docs_page_html(<<"HyperBEAM Guides">>, node_sidebar([]), Content).
+    docs_page_html(
+        <<"HyperBEAM Guides">>, <<"/info/boilerplate">>, node_sidebar([], <<"/info/boilerplate">>), Content
+    ).
 
 render_node_boilerplate_page_html(Data) ->
     Markdown = maps:get(<<"markdown">>, Data, <<>>),
+    ActivePath = maps:get(<<"href">>, Data, <<"/info/boilerplate">>),
     Content =
         [
             <<"<p class=\"eyebrow\">Guide</p><h1>">>,
@@ -1445,7 +1489,7 @@ render_node_boilerplate_page_html(Data) ->
             <<"</h1>">>,
             render_markdown(drop_first_h1(Markdown))
         ],
-    docs_page_html(<<"HyperBEAM Guide">>, node_sidebar([]), Content).
+    docs_page_html(<<"HyperBEAM Guide">>, ActivePath, node_sidebar([], ActivePath), Content).
 
 render_node_concepts_html(Data) ->
     Concepts = maps:get(<<"concepts">>, Data, #{}),
@@ -1454,21 +1498,29 @@ render_node_concepts_html(Data) ->
             <<"<p class=\"eyebrow\">Node</p><h1>Concepts</h1>">>,
             concept_rows(Concepts)
         ],
-    docs_page_html(<<"HyperBEAM Concepts">>, node_sidebar([]), Content).
+    docs_page_html(
+        <<"HyperBEAM Concepts">>, <<"/info/concepts">>, node_sidebar([], <<"/info/concepts">>), Content
+    ).
 
 render_node_concept_html(Data) ->
     Concept = maps:get(<<"concept">>, Data, <<>>),
+    ActivePath = <<"/info/concepts/", Concept/binary>>,
     Content =
         [
             <<"<p class=\"eyebrow\">Concept</p><h1>">>, esc(Concept),
             <<"</h1><p>">>, esc(maps:get(<<"description">>, Data, <<>>)), <<"</p>">>
         ],
-    docs_page_html(<<"HyperBEAM Concept">>, node_sidebar([]), Content).
+    docs_page_html(<<"HyperBEAM Concept">>, ActivePath, node_sidebar([], ActivePath), Content).
 
-docs_page_html(Title, Sidebar, Content) ->
+docs_page_html(Title, ActivePath, Sidebar, Content) ->
     iolist_to_binary([
         html_head(Title),
-        <<"<body class=\"ready sticky hb-docs-protocol\"><main>">>,
+        <<"<body class=\"ready sticky hb-docs-protocol close\" data-active-path=\"">>,
+        esc(ActivePath),
+        <<"\">">>,
+        docs_site_header(),
+        docs_mobile_nav_drawer(),
+        <<"<main>">>,
         docs_sidebar(Sidebar),
         <<"<section class=\"content\"><article class=\"markdown-section\" id=\"main\">">>,
         Content,
@@ -1477,6 +1529,59 @@ docs_page_html(Title, Sidebar, Content) ->
         <<"</body></html>">>
     ]).
 
+docs_site_header() ->
+    <<
+        "<header class=\"site-header\" id=\"site-header\">"
+        "<div class=\"site-header-top\">"
+        "<div class=\"site-header-actions\">"
+        "<button type=\"button\" class=\"mobile-menu-toggle\" id=\"mobile-menu-toggle\" "
+        "aria-label=\"Open sections menu\" aria-expanded=\"false\" aria-controls=\"mobile-nav-panel\">"
+        "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\">"
+        "<path d=\"M40,88a8,8,0,0,1,8-8H208a8,8,0,0,1,0,16H48A8,8,0,0,1,40,88Zm0,80a8,8,0,0,1,8-8H168a8,8,0,0,1,0,16H48A8,8,0,0,1,40,168Z\"/>"
+        "</svg>"
+        "</button>"
+        "</div>"
+        "</div>"
+        "</header>"
+    >>.
+
+docs_mobile_nav_drawer() ->
+    <<
+        "<div class=\"mobile-nav-drawer\" id=\"mobile-nav-drawer\" aria-hidden=\"true\">"
+        "<div class=\"mobile-nav-backdrop\" data-mobile-nav-close></div>"
+        "<nav class=\"mobile-nav-panel\" id=\"mobile-nav-panel\" aria-label=\"Documentation sections\">"
+        "<div class=\"mobile-nav-panel-header\">"
+        "<span class=\"mobile-nav-panel-title\">Sections</span>"
+        "<button type=\"button\" class=\"mobile-nav-close\" data-mobile-nav-close "
+        "aria-label=\"Close menu\">"
+        "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\">"
+        "<path d=\"M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z\"/>"
+        "</svg>"
+        "</button>"
+        "</div>"
+        "<div class=\"mobile-nav-panel-body\" id=\"mobile-nav-body\">"
+        "<div class=\"mobile-nav-tabs\" id=\"mobile-nav-tabs\">"
+        "<a class=\"mobile-nav-home\" href=\"/info\">Node Info</a>"
+        "</div>"
+        "<div class=\"mobile-nav-search\" id=\"mobile-nav-search\">"
+        "<div class=\"mobile-nav-search-wrap\">"
+        "<span class=\"mobile-nav-search-icon\" aria-hidden=\"true\">"
+        "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" "
+        "stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\">"
+        "<path d=\"m21 21-4.34-4.34\"/>"
+        "<circle cx=\"11\" cy=\"11\" r=\"8\"/>"
+        "</svg>"
+        "</span>"
+        "<input type=\"search\" id=\"mobile-nav-search-input\" class=\"mobile-nav-search-input\" "
+        "placeholder=\"Search docs...\" autocomplete=\"off\" aria-label=\"Search documentation\">"
+        "</div>"
+        "</div>"
+        "<div class=\"mobile-nav-list\" id=\"mobile-nav-list\"></div>"
+        "</div>"
+        "</nav>"
+        "</div>"
+    >>.
+
 html_head(Title) ->
     [
         <<"<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
@@ -1484,6 +1589,12 @@ html_head(Title) ->
             "<title>">>,
         esc(Title),
         <<"</title>"
+            "<link rel=\"preload\" href=\"/info/assets/fonts/dm-sans-400.woff2\" "
+            "as=\"font\" type=\"font/woff2\" crossorigin>"
+            "<link rel=\"preload\" href=\"/info/assets/fonts/dm-sans-500.woff2\" "
+            "as=\"font\" type=\"font/woff2\" crossorigin>"
+            "<link rel=\"preload\" href=\"/info/assets/fonts/dm-sans-600.woff2\" "
+            "as=\"font\" type=\"font/woff2\" crossorigin>"
             "<link rel=\"stylesheet\" href=\"/info/assets/fonts.css\">"
             "<link rel=\"stylesheet\" href=\"/info/assets/docsify-vue.css\">"
             "<link rel=\"stylesheet\" href=\"/info/assets/prism.css\">"
@@ -1495,23 +1606,89 @@ html_head(Title) ->
 
 hb_docs_overrides_css() ->
     <<"
-body.hb-docs-protocol { background: var(--bg); color: var(--text); }
+body.hb-docs-protocol {
+  background: var(--bg);
+  color: var(--text);
+  --content-max: none;
+}
+body.hb-docs-protocol .site-header { display: none; }
 body.hb-docs-protocol .sidebar { top: 0 !important; }
-body.hb-docs-protocol .content { padding-top: 0 !important; }
+body.hb-docs-protocol .sidebar > h1 { display: none; }
+body.hb-docs-protocol .content {
+  padding-top: 0 !important;
+  right: 0 !important;
+}
+body.hb-docs-protocol .content .markdown-section,
+body.hb-docs-protocol .markdown-section {
+  max-width: none !important;
+  margin: 0 !important;
+  width: 100% !important;
+  box-sizing: border-box;
+}
 body.hb-docs-protocol .content .markdown-section { padding-top: 36px !important; }
+body.hb-docs-protocol .markdown-section table {
+  width: 100%;
+  max-width: 100%;
+}
+body.hb-docs-protocol .site-header-nav-zone { display: none; }
+body.hb-docs-protocol .sidebar-nav > ul > li > ul > li > a {
+  color: var(--sidebar-nested-link-color) !important;
+  opacity: 0.72;
+}
+body.hb-docs-protocol .sidebar-nav > ul > li > ul > li > a:hover {
+  color: var(--sidebar-link-hover-color) !important;
+  opacity: 0.88;
+}
+body.hb-docs-protocol .sidebar-nav > ul > li > ul > li.active > a,
+body.hb-docs-protocol .sidebar-nav > ul > li > ul > li.active > a:hover {
+  color: var(--sidebar-nested-link-color) !important;
+  background: var(--sidebar-link-active-bg) !important;
+  font-weight: 500 !important;
+  opacity: 0.9;
+}
+body.hb-docs-protocol .sidebar-nav > ul > li > ul > li > ul a {
+  color: var(--sidebar-nested-link-color) !important;
+  opacity: 0.58;
+}
+body.hb-docs-protocol .sidebar-nav > ul > li > ul > li > ul li.active > a,
+body.hb-docs-protocol .sidebar-nav > ul > li > ul > li > ul li.active > a:hover {
+  color: var(--sidebar-nested-link-color) !important;
+  background: var(--sidebar-link-active-bg) !important;
+  font-weight: 500 !important;
+  opacity: 0.78;
+}
 body.hb-docs-protocol .eyebrow {
   margin: 0 0 0.5rem;
   color: var(--text-tertiary);
   font-size: var(--text-caption);
   font-weight: 600;
   letter-spacing: 0;
-  text-transform: uppercase;
+}
+.hb-docs-guide-section {
+  margin: 0 0 2rem;
+}
+.hb-docs-guide-section:last-child {
+  margin-bottom: 0;
+}
+.hb-docs-guide-section > h2,
+.hb-docs-guide-section > h3 {
+  margin: 0 0 0.75rem;
+}
+.hb-docs-guide-section .hb-docs-card-grid {
+  margin-top: 0;
 }
 .hb-docs-card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
   gap: 12px;
   margin: 1rem 0 1.5rem;
+}
+.markdown-section a.hb-docs-card,
+.markdown-section a.hb-docs-card:hover,
+.markdown-section a.hb-docs-card strong,
+.markdown-section a.hb-docs-card span,
+.markdown-section a.hb-docs-card small {
+  text-decoration: none !important;
 }
 .hb-docs-card {
   display: grid;
@@ -1524,14 +1701,33 @@ body.hb-docs-protocol .eyebrow {
   color: var(--text) !important;
   text-decoration: none !important;
 }
-.hb-docs-card:hover { background: var(--bg-hover); }
-.hb-docs-card span,
-.hb-docs-card small { color: var(--text-secondary); }
+.hb-docs-card:hover {
+  background: var(--bg-hover);
+  text-decoration: none !important;
+}
+.hb-docs-card strong {
+  color: var(--text);
+  opacity: 1;
+}
+.hb-docs-card span {
+  color: var(--text-secondary);
+  opacity: 0.72;
+}
+.hb-docs-card small {
+  color: var(--text-secondary);
+  font-size: var(--text-caption);
+}
 .hb-docs-section-index {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   margin: 1.5rem 0 2rem;
+}
+.markdown-section .hb-docs-section-index a,
+.markdown-section .hb-docs-section-index a:hover,
+.markdown-section .hb-docs-section-index a strong,
+.markdown-section .hb-docs-section-index a span {
+  text-decoration: none !important;
 }
 .hb-docs-section-index a {
   display: grid;
@@ -1544,8 +1740,15 @@ body.hb-docs-protocol .eyebrow {
   color: var(--text) !important;
   text-decoration: none !important;
 }
-	.hb-docs-section-index a:hover { background: var(--bg-hover); }
-	.hb-docs-section-index span { color: var(--text-secondary); font-size: var(--text-caption); }
+.hb-docs-section-index a:hover {
+  background: var(--bg-hover);
+  text-decoration: none !important;
+}
+.hb-docs-section-index span {
+  color: var(--text-secondary);
+  font-size: var(--text-caption);
+  opacity: 0.72;
+}
 	.hb-docs-renderer-note {
 	  color: var(--text-secondary);
 	  font-size: var(--text-small);
@@ -1589,107 +1792,239 @@ body.hb-docs-protocol .eyebrow {
   background: transparent;
 }
 @media (max-width: 1000px) {
-  body.hb-docs-protocol .sidebar {
-    display: block !important;
-    position: static !important;
-    transform: none !important;
-    width: auto !important;
-    max-height: none;
-    border-bottom: 1px solid var(--border) !important;
-    box-shadow: none !important;
-  }
-  body.hb-docs-protocol .content {
-    position: static !important;
-  }
+  body.hb-docs-protocol .site-header { display: block; }
+  body.hb-docs-protocol.mobile-nav-open .site-header { z-index: 280; }
+  body.hb-docs-protocol .sidebar { top: var(--header-height) !important; }
+  body.hb-docs-protocol .content { padding-top: var(--header-height) !important; }
   .hb-docs-section-index {
     grid-template-columns: 1fr;
   }
 }
+.mobile-nav-search {
+  margin: 0 0 18px;
+  padding: 0;
+}
+.mobile-nav-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 15px;
+  border: 1px solid var(--border);
+  border-radius: 25px;
+  background: var(--bg-muted);
+  cursor: text;
+  transition: border-color 100ms ease;
+}
+.mobile-nav-search-wrap:focus-within {
+  border-color: var(--border-strong);
+}
+.mobile-nav-search-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  color: var(--text-secondary);
+}
+.mobile-nav-search-icon svg {
+  width: 16px;
+  height: 16px;
+}
+.mobile-nav-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  min-height: 1.5em;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--text-nav);
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: 0;
+  outline: none;
+  box-shadow: none !important;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.mobile-nav-search-input::placeholder {
+  color: var(--text-secondary);
+}
+.mobile-nav-search-input:focus {
+  outline: none;
+  box-shadow: none !important;
+}
+.mobile-nav-search-input::-webkit-search-decoration,
+.mobile-nav-search-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+}
+body.hb-docs-protocol .mobile-nav-section-panel > .mobile-nav-link:not(:first-child),
+body.hb-docs-protocol .mobile-nav-link-nested {
+  padding-left: calc(var(--sidebar-sub-indent) + var(--sidebar-link-pad-x));
+  color: var(--sidebar-nested-link-color) !important;
+  opacity: 0.72;
+}
+body.hb-docs-protocol .mobile-nav-section-panel > .mobile-nav-link:not(:first-child):hover,
+body.hb-docs-protocol .mobile-nav-link-nested:hover {
+  color: var(--sidebar-link-hover-color) !important;
+  opacity: 0.88;
+}
+body.hb-docs-protocol .mobile-nav-sublink {
+  color: var(--sidebar-nested-link-color) !important;
+  opacity: 0.58;
+}
+body.hb-docs-protocol .mobile-nav-sublink:hover {
+  color: var(--sidebar-link-hover-color) !important;
+  opacity: 0.72;
+}
+.mobile-nav-section.mobile-nav-filter-hidden,
+.mobile-nav-tab.mobile-nav-filter-hidden,
+.mobile-nav-home.mobile-nav-filter-hidden {
+  display: none !important;
+}
+.mobile-nav-link.mobile-nav-filter-hidden,
+.mobile-nav-sublink.mobile-nav-filter-hidden,
+.mobile-nav-sublinks.mobile-nav-filter-hidden {
+  display: none !important;
+}
 ">>.
 docs_sidebar(Items) ->
     [
-        <<"<aside class=\"sidebar\"><h1>HyperBEAM</h1><div class=\"sidebar-nav\"><ul>">>,
+        <<"<aside class=\"sidebar\" id=\"sidebar\"><h1>HyperBEAM</h1>"
+            "<div class=\"sidebar-nav\"><ul>">>,
         Items,
         <<"</ul></div></aside>">>
     ].
 
-node_sidebar(Devices) ->
+device_info_path(DeviceID) ->
+    <<"/~", DeviceID/binary, "/info">>.
+device_schema_path(DeviceID) ->
+    <<"/~", DeviceID/binary, "/info/schema">>.
+device_schema_key_path(DeviceID, Key) ->
+    <<"/~", DeviceID/binary, "/info/schema/", Key/binary>>.
+device_spec_path(DeviceID) ->
+    <<"/~", DeviceID/binary, "/info/spec">>.
+device_recipes_path(DeviceID) ->
+    <<"/~", DeviceID/binary, "/info/recipes">>.
+device_recipe_path(DeviceID, Slug) ->
+    <<"/~", DeviceID/binary, "/info/recipes/", Slug/binary>>.
+device_implementations_path(DeviceID) ->
+    <<"/~", DeviceID/binary, "/info/implementations">>.
+
+active_path_match(ActivePath, Href) when is_binary(ActivePath), is_binary(Href) ->
+    ActivePath =:= Href.
+
+sidebar_li(ActivePath, Href, Content) ->
+    ActiveClass =
+        case active_path_match(ActivePath, Href) of
+            true -> <<" class=\"active\"">>;
+            false -> <<>>
+        end,
+    [
+        <<"<li">>, ActiveClass, <<"><a href=\"">>, esc(Href), <<"\">">>,
+        Content,
+        <<"</a></li>">>
+    ].
+
+node_sidebar(Devices, ActivePath) ->
     Boilerplate = boilerplate_index(),
     [
-        <<"<li class=\"active\"><a href=\"/info\">Node Info</a></li>">>,
-        <<"<li><p>Indexes</p><ul>"
-            "<li><a href=\"/info/schema\">Schema</a></li>"
-            "<li><a href=\"/info/spec\">Spec</a></li>"
-            "<li><a href=\"/info/recipes\">Recipes</a></li>"
-            "<li><a href=\"/info/implementations\">Implementations</a></li>"
-            "</ul></li>">>,
-        <<"<li><p>Guides</p><ul>">>,
+        sidebar_li(ActivePath, <<"/info">>, <<"Node Info">>),
         [
-            [
-                <<"<li><a href=\"">>, esc(maps:get(<<"href">>, Page, <<>>)),
-                <<"\">">>, esc(maps:get(<<"title">>, Page, <<>>)), <<"</a></li>">>
-            ]
-        || Page <- maps:get(<<"pages">>, Boilerplate, [])
+            <<"<li><p>Indexes</p><ul>">>,
+            sidebar_li(ActivePath, <<"/info/schema">>, <<"Schema">>),
+            sidebar_li(ActivePath, <<"/info/spec">>, <<"Spec">>),
+            sidebar_li(ActivePath, <<"/info/recipes">>, <<"Recipes">>),
+            sidebar_li(ActivePath, <<"/info/implementations">>, <<"Implementations">>),
+            <<"</ul></li>">>
         ],
-        <<"</ul></li>">>,
-        <<"<li><p>Devices</p><ul>">>,
         [
+            <<"<li><p>Guides</p><ul>">>,
             [
-                <<"<li><a href=\"">>, esc(maps:get(<<"href">>, Device)), <<"\">~">>,
-                esc(maps:get(<<"name">>, Device)),
-                <<"@">>, esc(maps:get(<<"version">>, Device, <<>>)),
-                <<"</a></li>">>
-            ]
-        || Device <- Devices
+                sidebar_li(
+                    ActivePath,
+                    maps:get(<<"href">>, Page, <<>>),
+                    esc(maps:get(<<"title">>, Page, <<>>))
+                )
+            || Page <- maps:get(<<"pages">>, Boilerplate, [])
+            ],
+            <<"</ul></li>">>
         ],
-        <<"</ul></li>">>
+        [
+            <<"<li><p>Devices</p><ul>">>,
+            [
+                sidebar_li(
+                    ActivePath,
+                    maps:get(<<"href">>, Device),
+                    [<<"~">>, esc(maps:get(<<"name">>, Device)), <<"@">>, esc(maps:get(<<"version">>, Device, <<>>))]
+                )
+            || Device <- Devices
+            ],
+            <<"</ul></li>">>
+        ]
     ].
 
-node_sidebar_from_component(Devices) ->
+node_component_section_active(ActivePath) ->
+    case ActivePath of
+        <<"/info/schema">> -> <<" class=\"active\"">>;
+        <<"/info/spec">> -> <<" class=\"active\"">>;
+        <<"/info/recipes">> -> <<" class=\"active\"">>;
+        <<"/info/implementations">> -> <<" class=\"active\"">>;
+        _ -> <<>>
+    end.
+
+node_sidebar_from_component(Devices, ActivePath) ->
     [
-        <<"<li><a href=\"/info\">Node Info</a></li>">>,
-        <<"<li class=\"active\"><p>Index</p><ul>">>,
+        sidebar_li(ActivePath, <<"/info">>, <<"Node Info">>),
         [
+            <<"<li">>, node_component_section_active(ActivePath), <<"><p>Index</p><ul>">>,
             [
-                <<"<li><a href=\"">>, esc(maps:get(<<"href">>, Device, <<>>)),
-                <<"\">~">>, esc(maps:get(<<"device">>, Device, <<>>)), <<"</a></li>">>
-            ]
-        || Device <- Devices
-        ],
-        <<"</ul></li>">>
+                sidebar_li(
+                    ActivePath,
+                    maps:get(<<"href">>, Device, <<>>),
+                    [<<"~">>, esc(maps:get(<<"device">>, Device, <<>>))]
+                )
+            || Device <- Devices
+            ],
+            <<"</ul></li>">>
+        ]
     ].
 
-device_sidebar(Data) ->
+device_sidebar(Data, ActivePath) ->
     Device = maps:get(<<"device">>, Data, #{}),
     DeviceID = maps:get(<<"id">>, Device, <<>>),
     SchemaOrder = maps:get(<<"schema-order">>, Data, []),
     Recipes = maps:get(<<"recipes">>, Data, #{}),
     [
-        <<"<li><a href=\"/info\">Node Info</a></li>">>,
-        <<"<li class=\"active\"><a href=\"/~">>, esc(DeviceID), <<"/info\">~">>,
-        esc(DeviceID), <<"</a></li>">>,
-        <<"<li><p>Schema</p><ul>">>,
-        <<"<li><a href=\"/~">>, esc(DeviceID), <<"/info/schema\">All keys</a></li>">>,
+        sidebar_li(ActivePath, <<"/info">>, <<"Node Info">>),
+        sidebar_li(ActivePath, device_info_path(DeviceID), [<<"~">>, esc(DeviceID)]),
         [
+            <<"<li><p>Schema</p><ul>">>,
+            sidebar_li(ActivePath, device_schema_path(DeviceID), <<"All keys">>),
             [
-                <<"<li><a href=\"/~">>, esc(DeviceID), <<"/info/schema/">>,
-                esc(Key), <<"\">">>, esc(Key), <<"</a></li>">>
-            ]
-        || Key <- SchemaOrder
+                sidebar_li(ActivePath, device_schema_key_path(DeviceID, Key), esc(Key))
+            || Key <- SchemaOrder
+            ],
+            <<"</ul></li>">>
         ],
-        <<"</ul></li>">>,
-        <<"<li><a href=\"/~">>, esc(DeviceID), <<"/info/spec\">Spec</a></li>">>,
-        <<"<li><p>Recipes</p><ul>">>,
-        <<"<li><a href=\"/~">>, esc(DeviceID), <<"/info/recipes\">All recipes</a></li>">>,
+        sidebar_li(ActivePath, device_spec_path(DeviceID), <<"Spec">>),
         [
+            <<"<li><p>Recipes</p><ul>">>,
+            sidebar_li(ActivePath, device_recipes_path(DeviceID), <<"All recipes">>),
             [
-                <<"<li><a href=\"/~">>, esc(DeviceID), <<"/info/recipes/">>,
-                esc(Slug), <<"\">">>, esc(maps:get(<<"title">>, Recipe, Slug)),
-                <<"</a></li>">>
-            ]
-        || {Slug, Recipe} <- lists:sort(maps:to_list(Recipes))
-        ],
-        <<"</ul></li>">>
+                sidebar_li(
+                    ActivePath,
+                    device_recipe_path(DeviceID, Slug),
+                    esc(maps:get(<<"title">>, Recipe, Slug))
+                )
+            || {Slug, Recipe} <- lists:sort(maps:to_list(Recipes))
+            ],
+            <<"</ul></li>">>
+        ]
     ].
 
 device_row(Device) ->
@@ -1703,17 +2038,47 @@ device_row(Device) ->
         <<"</span><small>Open docs</small></a>">>
     ].
 
-boilerplate_card_rows(Index) ->
+boilerplate_section_cards(Index, Heading) ->
+  [
+    boilerplate_section_block(Section, Pages, Heading)
+  || {Section, Pages} <- boilerplate_grouped_pages(Index)
+  ].
+
+boilerplate_section_block(Section, Pages, Heading) ->
+    Tag = boilerplate_section_heading_tag(Heading),
     [
-        [
-            <<"<a class=\"hb-docs-card\" href=\"">>,
-            esc(maps:get(<<"href">>, Page, <<>>)),
-            <<"\"><strong>">>, esc(maps:get(<<"title">>, Page, <<>>)),
-            <<"</strong><span>">>, esc(maps:get(<<"summary">>, Page, <<>>)),
-            <<"</span><small>">>, esc(maps:get(<<"section">>, Page, <<>>)),
-            <<"</small></a>">>
-        ]
-    || Page <- maps:get(<<"pages">>, Index, [])
+        <<"<section class=\"hb-docs-guide-section\">">>,
+        <<"<">>, Tag/binary, <<">">>, esc(Section), <<"</">>, Tag/binary, <<">">>,
+        <<"<div class=\"hb-docs-card-grid\">">>,
+        [boilerplate_card_row(Page) || Page <- Pages],
+        <<"</div></section>">>
+    ].
+
+boilerplate_section_heading_tag(h2) -> <<"h2">>;
+boilerplate_section_heading_tag(h3) -> <<"h3">>;
+boilerplate_section_heading_tag(_) -> <<"h2">>.
+
+boilerplate_grouped_pages(Index) ->
+    boilerplate_group_pages_by_section(maps:get(<<"pages">>, Index, []), []).
+
+boilerplate_group_pages_by_section([], Acc) ->
+    [{Section, lists:reverse(Pages)} || {Section, Pages} <- lists:reverse(Acc)];
+boilerplate_group_pages_by_section([Page | Rest], Acc) ->
+    Section = maps:get(<<"section">>, Page, <<>>),
+    case Acc of
+        [{Section, Pages} | Tail] ->
+            boilerplate_group_pages_by_section(Rest, [{Section, [Page | Pages]} | Tail]);
+        _ ->
+            boilerplate_group_pages_by_section(Rest, [{Section, [Page]} | Acc])
+    end.
+
+boilerplate_card_row(Page) ->
+    [
+        <<"<a class=\"hb-docs-card\" href=\"">>,
+        esc(maps:get(<<"href">>, Page, <<>>)),
+        <<"\"><strong>">>, esc(maps:get(<<"title">>, Page, <<>>)),
+        <<"</strong><span>">>, esc(maps:get(<<"summary">>, Page, <<>>)),
+        <<"</span></a>">>
     ].
 
 concept_rows(Concepts) ->
@@ -1889,12 +2254,14 @@ docs_shell_assets() ->
         <<"<script src=\"/info/assets/prism-lua.min.js\"></script>">>,
         <<"<script src=\"/info/assets/prism-markdown.min.js\"></script>">>,
         <<"<script>">>, docs_page_enhancer_js(), <<"</script>">>,
+        <<"<script>">>, docs_mobile_nav_js(), <<"</script>">>,
         <<"<script src=\"/info/assets/example-runner.js\"></script>">>,
         <<"<script>">>,
         <<"window.addEventListener('DOMContentLoaded',function(){">>,
         <<"if(window.Prism){window.Prism.highlightAll();}">>,
         <<"if(window.HBDocsCodeChrome){window.HBDocsCodeChrome.refresh();}">>,
         <<"if(window.HBExampleRunner){window.HBExampleRunner.refresh();}">>,
+        <<"if(window.HBDocsMobileNav){window.HBDocsMobileNav.init();}">>,
         <<"});">>,
         <<"</script>">>
     ].
@@ -1969,6 +2336,315 @@ docs_page_enhancer_js() ->
 	    }
 	  };
 	})();
+">>.
+
+docs_mobile_nav_js() ->
+    <<"
+(function () {
+  var chevronSvg =
+    '<svg class=\"nav-megamenu-chevron\" viewBox=\"0 0 12 12\" fill=\"none\" ' +
+    'stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" ' +
+    'stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M4.5 2.5 8 6 4.5 9.5\"/></svg>';
+
+  function normalizePath(path) {
+    return String(path || '/')
+      .split('?')[0]
+      .split('#')[0]
+      .replace(/\\/$/, '') || '/';
+  }
+
+  function isMobileNavHomeDuplicate(href, label) {
+    var home = document.querySelector('.mobile-nav-home');
+    if (!home) return false;
+    var homeHref = normalizePath(home.getAttribute('href') || '');
+    var homeLabel = (home.textContent || '').trim();
+    return normalizePath(href) === homeHref || (!!label && label === homeLabel);
+  }
+
+  function closeMobileNav() {
+    var drawer = document.getElementById('mobile-nav-drawer');
+    var toggle = document.getElementById('mobile-menu-toggle');
+    if (!drawer) return;
+    drawer.classList.remove('open');
+    drawer.setAttribute('aria-hidden', 'true');
+    if (toggle) toggle.setAttribute('aria-expanded', 'false');
+    document.body.classList.remove('mobile-nav-open');
+    var searchInput = document.getElementById('mobile-nav-search-input');
+    if (searchInput) {
+      searchInput.value = '';
+      filterMobileNav('');
+    }
+  }
+
+  function openMobileNav() {
+    var drawer = document.getElementById('mobile-nav-drawer');
+    var toggle = document.getElementById('mobile-menu-toggle');
+    if (!drawer) return;
+    drawer.classList.add('open');
+    drawer.setAttribute('aria-hidden', 'false');
+    if (toggle) toggle.setAttribute('aria-expanded', 'true');
+    document.body.classList.add('mobile-nav-open');
+    drawer.querySelectorAll('.mobile-nav-section.active').forEach(function (sectionEl) {
+      sectionEl.classList.add('open');
+      var trigger = sectionEl.querySelector('.mobile-nav-section-trigger');
+      if (trigger) trigger.setAttribute('aria-expanded', 'true');
+    });
+  }
+
+  function syncLayoutForViewport() {
+    if (window.matchMedia('(max-width: 1000px)').matches) {
+      document.body.classList.add('close');
+    } else {
+      document.body.classList.remove('close');
+      closeMobileNav();
+    }
+  }
+
+  function setActiveNav(path) {
+    var normalized = normalizePath(path);
+    var home = document.querySelector('.mobile-nav-home');
+    if (home) {
+      home.classList.toggle('active', normalized === '/info');
+    }
+    document.querySelectorAll('.mobile-nav-tab').forEach(function (tab) {
+      var href = tab.getAttribute('href') || '';
+      tab.classList.toggle('active', normalizePath(href) === normalized);
+    });
+    document.querySelectorAll('.mobile-nav-section').forEach(function (sectionEl) {
+      var active = false;
+      sectionEl.querySelectorAll('a[href]').forEach(function (link) {
+        if (normalizePath(link.getAttribute('href')) === normalized) active = true;
+      });
+      sectionEl.classList.toggle('active', active);
+    });
+    document.querySelectorAll('.sidebar-nav a[href]').forEach(function (link) {
+      var li = link.parentElement;
+      if (!li) return;
+      li.classList.toggle('active', normalizePath(link.getAttribute('href')) === normalized);
+    });
+  }
+
+  function textMatchesQuery(text, query) {
+    return String(text || '').trim().toLowerCase().indexOf(query) !== -1;
+  }
+
+  function filterMobileNav(query) {
+    var q = String(query || '').trim().toLowerCase();
+    var mobileNavList = document.getElementById('mobile-nav-list');
+    var mobileNavTabs = document.getElementById('mobile-nav-tabs');
+    if (!mobileNavList) return;
+
+    function setHidden(el, hidden) {
+      if (!el) return;
+      el.classList.toggle('mobile-nav-filter-hidden', hidden);
+    }
+
+    if (mobileNavTabs) {
+      mobileNavTabs.querySelectorAll('.mobile-nav-tab').forEach(function (tab) {
+        var label = (tab.textContent || '').trim();
+        setHidden(tab, q && !textMatchesQuery(label, q));
+      });
+      setHidden(
+        mobileNavTabs.querySelector('.mobile-nav-home'),
+        q && !textMatchesQuery((mobileNavTabs.querySelector('.mobile-nav-home')?.textContent || ''), q)
+      );
+    }
+
+    mobileNavList.querySelectorAll('.mobile-nav-section').forEach(function (sectionEl) {
+      var sectionLabel = (
+        sectionEl.querySelector('.mobile-nav-section-trigger span')?.textContent || ''
+      ).trim();
+      var sectionMatches = q && textMatchesQuery(sectionLabel, q);
+      var sectionVisible = !q;
+
+      sectionEl.querySelectorAll('.mobile-nav-link').forEach(function (link) {
+        var linkMatches = !q || sectionMatches || textMatchesQuery(link.textContent, q);
+        var sublinks = link.nextElementSibling;
+        var hasVisibleSublink = false;
+
+        if (sublinks && sublinks.classList.contains('mobile-nav-sublinks')) {
+          sublinks.querySelectorAll('.mobile-nav-sublink').forEach(function (sublink) {
+            var sublinkMatches = !q || sectionMatches || textMatchesQuery(sublink.textContent, q);
+            setHidden(sublink, !sublinkMatches);
+            if (sublinkMatches) hasVisibleSublink = true;
+          });
+          setHidden(sublinks, q && !sectionMatches && !hasVisibleSublink && !linkMatches);
+        }
+
+        var visible = linkMatches || hasVisibleSublink;
+        setHidden(link, q && !visible);
+        if (visible) sectionVisible = true;
+      });
+
+      setHidden(sectionEl, q && !sectionVisible);
+
+      if (q && sectionVisible) {
+        sectionEl.classList.add('open');
+        var trigger = sectionEl.querySelector('.mobile-nav-section-trigger');
+        if (trigger) trigger.setAttribute('aria-expanded', 'true');
+      } else if (!q) {
+        var isActive = sectionEl.classList.contains('active');
+        sectionEl.classList.toggle('open', isActive);
+        var sectionTrigger = sectionEl.querySelector('.mobile-nav-section-trigger');
+        if (sectionTrigger) sectionTrigger.setAttribute('aria-expanded', String(isActive));
+      }
+    });
+  }
+
+  function buildMobileNavFromSidebar() {
+    var sidebarNav = document.querySelector('.sidebar-nav > ul');
+    var mobileNavList = document.getElementById('mobile-nav-list');
+    var mobileNavTabs = document.getElementById('mobile-nav-tabs');
+    if (!sidebarNav || !mobileNavList || !mobileNavTabs) return;
+
+    mobileNavList.innerHTML = '';
+    mobileNavTabs.querySelectorAll('.mobile-nav-tab').forEach(function (el) {
+      el.remove();
+    });
+
+    Array.prototype.forEach.call(sidebarNav.children, function (li, index) {
+      if (li.tagName !== 'LI') return;
+      var sectionLabelEl = li.querySelector(':scope > p');
+      var directLink = li.querySelector(':scope > a');
+      var subUl = li.querySelector(':scope > ul');
+
+      if (sectionLabelEl && subUl) {
+        var label = (sectionLabelEl.textContent || '').trim();
+        var sectionId = label.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        var firstLink = subUl.querySelector('a[href]');
+        var sectionHome = firstLink ? firstLink.getAttribute('href') : '/info';
+
+        if (!isMobileNavHomeDuplicate(sectionHome, label)) {
+          var tab = document.createElement('a');
+          tab.className = 'mobile-nav-tab';
+          tab.href = sectionHome;
+          tab.setAttribute('data-section', sectionId);
+          tab.textContent = label;
+          tab.addEventListener('click', closeMobileNav);
+          mobileNavTabs.appendChild(tab);
+        }
+
+        var block = document.createElement('div');
+        block.className = 'mobile-nav-section';
+        block.setAttribute('data-section', sectionId);
+
+        var trigger = document.createElement('button');
+        trigger.type = 'button';
+        trigger.className = 'mobile-nav-section-trigger';
+        trigger.setAttribute('aria-expanded', 'false');
+        trigger.innerHTML = '<span>' + label + '</span>' + chevronSvg;
+
+        var panel = document.createElement('div');
+        panel.className = 'mobile-nav-section-panel';
+
+        subUl.querySelectorAll(':scope > li').forEach(function (item, itemIndex) {
+          var link = item.querySelector(':scope > a');
+          if (!link) return;
+          var mobileLink = document.createElement('a');
+          mobileLink.className = itemIndex === 0
+            ? 'mobile-nav-link'
+            : 'mobile-nav-link mobile-nav-link-nested';
+          mobileLink.href = link.getAttribute('href') || '#';
+          mobileLink.textContent = (link.textContent || '').trim();
+          mobileLink.addEventListener('click', closeMobileNav);
+          panel.appendChild(mobileLink);
+
+          var nested = item.querySelector(':scope > ul');
+          if (nested) {
+            var sublinks = document.createElement('div');
+            sublinks.className = 'mobile-nav-sublinks';
+            nested.querySelectorAll('a[href]').forEach(function (childLink) {
+              var child = document.createElement('a');
+              child.className = 'mobile-nav-sublink';
+              child.href = childLink.getAttribute('href') || '#';
+              child.textContent = (childLink.textContent || '').trim();
+              child.addEventListener('click', closeMobileNav);
+              sublinks.appendChild(child);
+            });
+            panel.appendChild(sublinks);
+          }
+        });
+
+        trigger.addEventListener('click', function () {
+          var isOpen = block.classList.contains('open');
+          mobileNavList.querySelectorAll('.mobile-nav-section.open').forEach(function (other) {
+            if (other !== block) {
+              other.classList.remove('open');
+              var otherTrigger = other.querySelector('.mobile-nav-section-trigger');
+              if (otherTrigger) otherTrigger.setAttribute('aria-expanded', 'false');
+            }
+          });
+          block.classList.toggle('open', !isOpen);
+          trigger.setAttribute('aria-expanded', String(!isOpen));
+        });
+
+        block.appendChild(trigger);
+        block.appendChild(panel);
+        mobileNavList.appendChild(block);
+        return;
+      }
+
+      if (directLink) {
+        var linkHref = directLink.getAttribute('href') || '#';
+        var linkLabel = (directLink.textContent || '').trim();
+        if (!isMobileNavHomeDuplicate(linkHref, linkLabel)) {
+          var tabLink = document.createElement('a');
+          tabLink.className = 'mobile-nav-tab';
+          tabLink.href = linkHref;
+          tabLink.setAttribute('data-section', 'link-' + index);
+          tabLink.textContent = linkLabel;
+          tabLink.addEventListener('click', closeMobileNav);
+          mobileNavTabs.appendChild(tabLink);
+        }
+      }
+    });
+    var searchInput = document.getElementById('mobile-nav-search-input');
+    filterMobileNav(searchInput ? searchInput.value : '');
+  }
+
+  function bindMobileNavSearch() {
+    var searchInput = document.getElementById('mobile-nav-search-input');
+    if (!searchInput || searchInput.__bound) return;
+    searchInput.__bound = true;
+    searchInput.addEventListener('input', function () {
+      filterMobileNav(searchInput.value);
+    });
+  }
+
+  function bindMobileChrome() {
+    var mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+    var mobileNavDrawer = document.getElementById('mobile-nav-drawer');
+    var navMedia = window.matchMedia('(max-width: 1000px)');
+
+    mobileMenuToggle?.addEventListener('click', function () {
+      if (mobileNavDrawer?.classList.contains('open')) closeMobileNav();
+      else openMobileNav();
+    });
+
+    mobileNavDrawer?.querySelectorAll('[data-mobile-nav-close]').forEach(function (el) {
+      el.addEventListener('click', closeMobileNav);
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape') return;
+      closeMobileNav();
+    });
+
+    navMedia.addEventListener('change', syncLayoutForViewport);
+    window.addEventListener('resize', syncLayoutForViewport, { passive: true });
+  }
+
+  window.HBDocsMobileNav = {
+    init: function () {
+      buildMobileNavFromSidebar();
+      bindMobileNavSearch();
+      bindMobileChrome();
+      syncLayoutForViewport();
+      setActiveNav(document.body.getAttribute('data-active-path') || window.location.pathname);
+      document.querySelector('.mobile-nav-home')?.addEventListener('click', closeMobileNav);
+    }
+  };
+})();
 ">>.
 
 docs_asset_response(Parts) ->
@@ -2501,6 +3177,11 @@ html_negotiation_test() ->
     ?assertEqual(nomatch, binary:match(Body, <<"data-template=\"/~arweave@2.9/tx\"">>)),
     ?assert(binary:match(Body, <<"/info/assets/site.css">>) =/= nomatch),
     ?assert(binary:match(Body, <<"/info/assets/prism-core.min.js">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"mobile-menu-toggle">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"mobile-nav-drawer">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"mobile-nav-search-input">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"HBDocsMobileNav">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"data-active-path=\"/~arweave@2.9/info\"">>) =/= nomatch),
     ?assert(binary:match(Body, <<"class=\"language-bash\"">>) =/= nomatch).
 
 message_markdown_rendering_test() ->
@@ -2545,7 +3226,10 @@ schema_key_route_test() ->
     ?assertEqual(<<"text/html; charset=utf-8">>, maps:get(<<"content-type">>, HTML)),
     Body = maps:get(<<"body">>, HTML),
     ?assert(binary:match(Body, <<"Schema Key">>) =/= nomatch),
-    ?assert(binary:match(Body, <<"Read any public message field">>) =/= nomatch).
+    ?assert(binary:match(Body, <<"Read any public message field">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"data-active-path=\"/~message@1.0/info/schema/field\"">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"<li class=\"active\"><a href=\"/~message@1.0/info/schema/field\">">>) =/= nomatch),
+    ?assertEqual(nomatch, binary:match(Body, <<"<li class=\"active\"><a href=\"/~message@1.0/info\">">>)).
 
 schema_parameter_route_test() ->
     {ok, HTML} = device_info_route(
