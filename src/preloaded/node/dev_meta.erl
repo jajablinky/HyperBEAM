@@ -226,6 +226,12 @@ is_permanent(NodeMsg) ->
 %% After execution, we run the node's `response' hook on the result of
 %% the request before returning the result it grants back to the user.
 handle_resolve(Req, Msgs, NodeMsg) ->
+    case hb_docs:maybe_info_request(Msgs, Req, NodeMsg) of
+        {true, Res} -> Res;
+        false -> do_handle_resolve(Req, Msgs, NodeMsg)
+    end.
+
+do_handle_resolve(Req, Msgs, NodeMsg) ->
     % Apply the pre-processor to the request.
     ?event(http_request,
         {resolve_hook,

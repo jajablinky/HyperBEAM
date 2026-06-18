@@ -6,7 +6,7 @@
 %%% behaviour of the device when these keys are set.
 -module(dev_message).
 %%% Base AO-Core reserved keys:
--export([info/0, keys/1, keys/2]).
+-export([info/0, info/3, keys/1, keys/2]).
 -export([set/3, set_path/3, remove/3, get/3, get/4]).
 %%% Commitment-specific keys:
 -export([id/1, id/2, id/3]).
@@ -35,6 +35,10 @@ info() ->
     #{
         default => fun dev_message:get/4
     }.
+
+%% @doc Return protocol-native documentation for this device.
+info(_Base, Request, Opts) ->
+    hb_docs:device_info(<<"message@1.0">>, Request, Opts).
 
 %% @doc Generate an index page for a message, in the event that the `body' and
 %% `content-type' of a message returned to the client are both empty. We do this
