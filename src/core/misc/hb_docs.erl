@@ -396,7 +396,7 @@ device_info_data(?COOKBOOK_DEVICE, Opts) ->
             }
         ],
         <<"coverage">> => #{
-            <<"spec">> => <<"missing">>,
+            <<"spec">> => <<"specs/cookbook@1.0.md">>,
             <<"schema">> => <<"prototype-renderer-keys">>,
             <<"recipes">> => <<"not-applicable">>,
             <<"renderer">> => <<"cookbook@1.0">>
@@ -2510,6 +2510,9 @@ cookbook_device_contract_test() ->
     Data = device_info_data(?COOKBOOK_DEVICE, #{}),
     ?assertEqual(<<"device-info">>, maps:get(<<"kind">>, Data)),
     ?assertEqual(<<"prototype-renderer-device">>, maps:get(<<"status">>, maps:get(<<"renderer">>, Data))),
+    Spec = maps:get(<<"spec">>, Data),
+    ?assertEqual(<<"present">>, maps:get(<<"spec-status">>, Spec)),
+    ?assertEqual(<<"specs/cookbook@1.0.md">>, maps:get(<<"source-path">>, Spec)),
     Schema = maps:get(<<"schema">>, Data),
     ?assert(maps:is_key(<<"device">>, Schema)),
     DeviceKey = maps:get(<<"device">>, Schema),
