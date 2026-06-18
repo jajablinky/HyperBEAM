@@ -1247,9 +1247,8 @@ render_node_html(Data) ->
             <<"</p><p class=\"hb-docs-renderer-note\">Rendered by <a href=\"">>,
             esc(maps:get(<<"node-renderer">>, Renderer)),
             <<"\">~">>, esc(maps:get(<<"device">>, Renderer)), <<"</a>.</p>">>,
-            <<"<h2>Guides</h2><div class=\"hb-docs-card-grid\">">>,
-            boilerplate_card_rows(Boilerplate),
-            <<"</div>">>,
+            <<"<h2>Guides</h2>">>,
+            boilerplate_structured_index(Boilerplate),
             <<"<h2>Devices</h2><div class=\"hb-docs-card-grid\">">>,
             [device_row(Device) || Device <- Devices],
             <<"</div><h2>Concepts</h2>">>,
@@ -1430,9 +1429,8 @@ render_node_boilerplate_html(Data) ->
         [
             <<"<p class=\"eyebrow\">Node</p><h1>Guides</h1><p>">>,
             esc(maps:get(<<"summary">>, Data, <<>>)),
-            <<"</p><div class=\"hb-docs-card-grid\">">>,
-            boilerplate_card_rows(Data),
-            <<"</div>">>
+            <<"</p>">>,
+            boilerplate_structured_index(Data)
         ],
     docs_page_html(<<"HyperBEAM Guides">>, node_sidebar([]), Content).
 
@@ -1527,6 +1525,37 @@ body.hb-docs-protocol .eyebrow {
 .hb-docs-card:hover { background: var(--bg-hover); }
 .hb-docs-card span,
 .hb-docs-card small { color: var(--text-secondary); }
+.hb-docs-guide-index {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  column-gap: 28px;
+  row-gap: 22px;
+  margin: 1rem 0 2rem;
+}
+.hb-docs-guide-group {
+  min-width: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.hb-docs-guide-group h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  line-height: 1.3;
+}
+.hb-docs-guide-group ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.hb-docs-guide-group li { margin: 0; }
+.hb-docs-guide-group a {
+  color: var(--text) !important;
+  font-weight: 500;
+  text-decoration: none !important;
+}
+.hb-docs-guide-group a:hover { text-decoration: underline !important; }
 .hb-docs-section-index {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1754,17 +1783,37 @@ device_row(Device) ->
         <<"</span><small>Open docs</small></a>">>
     ].
 
-boilerplate_card_rows(Index) ->
+boilerplate_structured_index(Index) ->
+    Pages = maps:get(<<"pages">>, Index, []),
     [
+        <<"<nav class=\"hb-docs-guide-index\" aria-label=\"Guides\">">>,
         [
-            <<"<a class=\"hb-docs-card\" href=\"">>,
-            esc(maps:get(<<"href">>, Page, <<>>)),
-            <<"\"><strong>">>, esc(maps:get(<<"title">>, Page, <<>>)),
-            <<"</strong><span>">>, esc(maps:get(<<"summary">>, Page, <<>>)),
-            <<"</span><small>">>, esc(maps:get(<<"section">>, Page, <<>>)),
-            <<"</small></a>">>
-        ]
-    || Page <- maps:get(<<"pages">>, Index, [])
+            boilerplate_guide_group(Section, Pages)
+        || Section <- boilerplate_section_order()
+        ],
+        <<"</nav>">>
+    ].
+
+boilerplate_guide_group(Section, Pages) ->
+    case boilerplate_pages_for_section(Section, Pages) of
+        [] ->
+            [];
+        SectionPages ->
+            [
+                <<"<section class=\"hb-docs-guide-group\"><h3>">>, esc(Section),
+                <<"</h3><ul>">>,
+                [
+                    boilerplate_guide_link(Page)
+                || Page <- SectionPages
+                ],
+                <<"</ul></section>">>
+            ]
+    end.
+
+boilerplate_guide_link(Page) ->
+    [
+        <<"<li><a href=\"">>, esc(maps:get(<<"href">>, Page, <<>>)),
+        <<"\">">>, esc(maps:get(<<"title">>, Page, <<>>)), <<"</a></li>">>
     ].
 
 concept_rows(Concepts) ->
@@ -2500,7 +2549,10 @@ node_sidebar_hierarchy_test() ->
     ?assert(binary:match(Body, <<"<li><a href=\"/info/boilerplate/index\">Overview</a></li>">>) =/= nomatch),
     ?assert(binary:match(Body, <<"<li><p>Introduction</p><ul>">>) =/= nomatch),
     ?assert(binary:match(Body, <<"<li><p>Device Forge</p><ul>">>) =/= nomatch),
-    ?assert(binary:match(Body, <<"<li><p>Device Recipes</p><ul>">>) =/= nomatch).
+    ?assert(binary:match(Body, <<"<li><p>Device Recipes</p><ul>">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"hb-docs-guide-index">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"<section class=\"hb-docs-guide-group\"><h3>Introduction</h3><ul>">>) =/= nomatch),
+    ?assertEqual(nomatch, binary:match(Body, <<"<h2>Guides</h2><div class=\"hb-docs-card-grid\">">>)).
 
 arweave_info_contract_test() ->
     Data = device_info_data(?ARWEAVE_DEVICE, #{}),
