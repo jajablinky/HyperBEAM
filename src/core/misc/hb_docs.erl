@@ -45,8 +45,15 @@ info_route(_) ->
 path_key(Msg) ->
     hb_maps:get(<<"path">>, Msg, <<>>, #{}).
 
+path_tail_key(Msg) when is_map(Msg) ->
+    path_key(Msg);
+path_tail_key(Msg) when is_binary(Msg) ->
+    Msg;
+path_tail_key(_) ->
+    <<>>.
+
 path_tail_keys(Tail) ->
-    [path_key(Msg) || Msg <- Tail, is_map(Msg), path_key(Msg) =/= <<>>].
+    [Key || Msg <- Tail, (Key = path_tail_key(Msg)) =/= <<>>].
 
 supported_device(?ARWEAVE_DEVICE) -> true;
 supported_device(?MESSAGE_DEVICE) -> true;
@@ -162,6 +169,22 @@ device_info_route(Device, [<<"spec">>], Req, Opts) ->
     Data = device_info_data(Device, Opts),
     Spec = maps:get(<<"spec">>, Data, #{}),
     respond_html_or_json(spec, Data, Spec, Req);
+device_info_route(Device, [<<"spec">>, SectionSlug], Req, Opts) ->
+    Data = device_info_data(Device, Opts),
+    Spec = maps:get(<<"spec">>, Data, #{}),
+    case spec_section_lookup(Spec, SectionSlug) of
+        undefined ->
+            {ok, not_found_response()};
+        {SectionSlug, Title} ->
+            Payload = #{
+                <<"device">> => maps:get(<<"device">>, Data, #{}),
+                <<"device-data">> => Data,
+                <<"section-id">> => SectionSlug,
+                <<"section-title">> => Title,
+                <<"spec">> => Spec
+            },
+            respond_html_or_json(spec_section, Payload, Payload, Req)
+    end;
 device_info_route(Device, [<<"recipes">>], Req, Opts) ->
     Data = device_info_data(Device, Opts),
     Recipes = maps:get(<<"recipes">>, Data, #{}),
@@ -450,6 +473,8 @@ html_response(schema_parameter, Data) ->
     html_doc_response(render_schema_parameter_html(Data));
 html_response(spec, Data) ->
     html_doc_response(render_spec_html(Data));
+html_response(spec_section, Data) ->
+    html_doc_response(render_spec_section_page_html(Data));
 html_response(recipes, Data) ->
     html_doc_response(render_recipes_html(Data));
 html_response(recipe, Data) ->
@@ -1277,10 +1302,8 @@ render_device_html(Data) ->
             <<"</tbody></table>">>,
             render_spec_section(DeviceID, Spec),
             <<"<h2 id=\"recipes\">Recipes</h2><div class=\"hb-docs-card-grid\">">>,
-            recipe_nav(Recipes),
-            <<"</div>">>,
-            <<"<h2>Runnable Workflows</h2>">>,
-            recipe_rows(DeviceID, Recipes)
+            recipe_nav(DeviceID, Recipes),
+            <<"</div>">>
         ],
     docs_page_html(
         <<"HyperBEAM Device Info">>,
@@ -1380,6 +1403,25 @@ render_spec_html(Data) ->
         Content
     ).
 
+render_spec_section_page_html(Payload) ->
+    Data = maps:get(<<"device-data">>, Payload),
+    Device = maps:get(<<"device">>, Payload),
+    DeviceID = maps:get(<<"id">>, Device),
+    SectionId = maps:get(<<"section-id">>, Payload),
+    Title = maps:get(<<"section-title">>, Payload),
+    Spec = maps:get(<<"spec">>, Payload),
+    ActivePath = device_spec_section_path(DeviceID, SectionId),
+    Content =
+        [
+            <<"<article class=\"spec-section markdown-section\">">>,
+            <<"<p class=\"eyebrow\">Specification</p><h1>">>, esc(DeviceID),
+            <<" / ">>, esc(Title), <<"</h1>">>,
+            spec_tx_link_paragraph(Spec),
+            render_markdown_with_heading_ids(spec_section_markdown(Spec, SectionId)),
+            <<"</article>">>
+        ],
+    docs_page_html(<<"HyperBEAM Spec">>, ActivePath, device_sidebar(Data, ActivePath), Content).
+
 render_recipes_html(Data) ->
     Device = maps:get(<<"device">>, Data),
     DeviceID = maps:get(<<"id">>, Device),
@@ -1388,9 +1430,8 @@ render_recipes_html(Data) ->
         [
             <<"<p class=\"eyebrow\">Recipes</p><h1>~">>, esc(DeviceID),
             <<" recipes</h1><div class=\"hb-docs-card-grid\">">>,
-            recipe_nav(Recipes),
-            <<"</div>">>,
-            recipe_rows(DeviceID, Recipes)
+            recipe_nav(DeviceID, Recipes),
+            <<"</div>">>
         ],
     docs_page_html(
         <<"HyperBEAM Recipes">>,
@@ -1409,10 +1450,12 @@ render_recipe_html(Payload) ->
     Content =
         [
             <<"<article class=\"recipe markdown-section\">">>,
+            <<"<p class=\"eyebrow\">Recipe</p><h1>">>, esc(DeviceID),
+            <<" / ">>, esc(maps:get(<<"title">>, Recipe, Slug)), <<"</h1>">>,
             <<"<p class=\"eyebrow\">">>,
             esc(maps:get(<<"source-relative">>, Recipe, <<>>)),
             <<"</p>">>,
-            render_markdown(recipe_markdown(Recipe)),
+            render_markdown(drop_first_h1(recipe_markdown(Recipe))),
             <<"</article>">>
         ],
     docs_page_html(<<"HyperBEAM Recipe">>, ActivePath, device_sidebar(Data, ActivePath), Content).
@@ -1561,7 +1604,7 @@ docs_mobile_nav_drawer() ->
         "</div>"
         "<div class=\"mobile-nav-panel-body\" id=\"mobile-nav-body\">"
         "<div class=\"mobile-nav-tabs\" id=\"mobile-nav-tabs\">"
-        "<a class=\"mobile-nav-home\" href=\"/info\">Node Info</a>"
+        "<a class=\"mobile-nav-home\" href=\"/info\">View All Node Info</a>"
         "</div>"
         "<div class=\"mobile-nav-search\" id=\"mobile-nav-search\">"
         "<div class=\"mobile-nav-search-wrap\">"
@@ -1616,7 +1659,23 @@ body.hb-docs-protocol .sidebar { top: 0 !important; }
 body.hb-docs-protocol .sidebar > h1 { display: none; }
 body.hb-docs-protocol .content {
   padding-top: 0 !important;
-  right: 0 !important;
+}
+@media (max-width: 1200px) {
+  body.hb-docs-protocol .content {
+    right: 0 !important;
+  }
+}
+@media (min-width: 1201px) {
+  body.hb-docs-protocol .content {
+    right: 0 !important;
+  }
+  body.hb-docs-protocol.page-toc-active .content {
+    right: calc(var(--toc-width) + var(--layout-inline-padding)) !important;
+  }
+  body.hb-docs-protocol.page-toc-active .page-toc {
+    top: 28px;
+    max-height: calc(100vh - 40px);
+  }
 }
 body.hb-docs-protocol .content .markdown-section,
 body.hb-docs-protocol .markdown-section {
@@ -1631,16 +1690,38 @@ body.hb-docs-protocol .markdown-section table {
   max-width: 100%;
 }
 body.hb-docs-protocol .site-header-nav-zone { display: none; }
-body.hb-docs-protocol .sidebar-nav > ul > li > ul > li > a {
+body.hb-docs-protocol .sidebar-nav > ul > li.sidebar-flat-links > ul > li > a,
+body.hb-docs-protocol .sidebar-nav > ul > li > ul > li:first-child > a {
+  padding-left: var(--sidebar-link-pad-x) !important;
+  padding-right: var(--sidebar-link-pad-x) !important;
+  color: var(--sidebar-link-color) !important;
+  opacity: 1;
+}
+body.hb-docs-protocol .sidebar-nav > ul > li.sidebar-flat-links > ul > li > a:hover,
+body.hb-docs-protocol .sidebar-nav > ul > li > ul > li:first-child > a:hover {
+  color: var(--sidebar-link-hover-color) !important;
+}
+body.hb-docs-protocol .sidebar-nav > ul > li.sidebar-flat-links > ul > li.active > a,
+body.hb-docs-protocol .sidebar-nav > ul > li.sidebar-flat-links > ul > li.active > a:hover,
+body.hb-docs-protocol .sidebar-nav > ul > li > ul > li:first-child.active > a,
+body.hb-docs-protocol .sidebar-nav > ul > li > ul > li:first-child.active > a:hover {
+  color: var(--sidebar-link-active-color) !important;
+  background: var(--sidebar-link-active-bg) !important;
+  font-weight: 600 !important;
+  opacity: 1;
+  padding-left: var(--sidebar-link-pad-x) !important;
+  padding-right: var(--sidebar-link-pad-x) !important;
+}
+body.hb-docs-protocol .sidebar-nav > ul > li > ul > li:not(:first-child) > a {
   color: var(--sidebar-nested-link-color) !important;
   opacity: 0.72;
 }
-body.hb-docs-protocol .sidebar-nav > ul > li > ul > li > a:hover {
+body.hb-docs-protocol .sidebar-nav > ul > li > ul > li:not(:first-child) > a:hover {
   color: var(--sidebar-link-hover-color) !important;
   opacity: 0.88;
 }
-body.hb-docs-protocol .sidebar-nav > ul > li > ul > li.active > a,
-body.hb-docs-protocol .sidebar-nav > ul > li > ul > li.active > a:hover {
+body.hb-docs-protocol .sidebar-nav > ul > li > ul > li:not(:first-child).active > a,
+body.hb-docs-protocol .sidebar-nav > ul > li > ul > li:not(:first-child).active > a:hover {
   color: var(--sidebar-nested-link-color) !important;
   background: var(--sidebar-link-active-bg) !important;
   font-weight: 500 !important;
@@ -1691,9 +1772,11 @@ body.hb-docs-protocol .eyebrow {
   text-decoration: none !important;
 }
 .hb-docs-card {
-  display: grid;
-  gap: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
   min-height: 120px;
+  height: 100%;
   padding: 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -1710,10 +1793,16 @@ body.hb-docs-protocol .eyebrow {
   opacity: 1;
 }
 .hb-docs-card span {
+  flex: 1 1 auto;
+  margin-top: 4px;
   color: var(--text-secondary);
   opacity: 0.72;
+  line-height: 1.4;
 }
 .hb-docs-card small {
+  flex: 0 0 auto;
+  margin-top: auto;
+  padding-top: 10px;
   color: var(--text-secondary);
   font-size: var(--text-caption);
 }
@@ -1862,6 +1951,15 @@ body.hb-docs-protocol .eyebrow {
 .mobile-nav-search-input::-webkit-search-cancel-button {
   -webkit-appearance: none;
 }
+body.hb-docs-protocol .mobile-nav-section.mobile-nav-flat-links .mobile-nav-link {
+  padding-left: var(--sidebar-link-pad-x);
+  color: var(--sidebar-link-color) !important;
+  opacity: 1;
+}
+body.hb-docs-protocol .mobile-nav-section.mobile-nav-flat-links .mobile-nav-link:hover {
+  color: var(--sidebar-link-hover-color) !important;
+  opacity: 1;
+}
 body.hb-docs-protocol .mobile-nav-section-panel > .mobile-nav-link:not(:first-child),
 body.hb-docs-protocol .mobile-nav-link-nested {
   padding-left: calc(var(--sidebar-sub-indent) + var(--sidebar-link-pad-x));
@@ -1908,6 +2006,8 @@ device_schema_key_path(DeviceID, Key) ->
     <<"/~", DeviceID/binary, "/info/schema/", Key/binary>>.
 device_spec_path(DeviceID) ->
     <<"/~", DeviceID/binary, "/info/spec">>.
+device_spec_section_path(DeviceID, SectionId) ->
+    <<"/~", DeviceID/binary, "/info/spec/", SectionId/binary>>.
 device_recipes_path(DeviceID) ->
     <<"/~", DeviceID/binary, "/info/recipes">>.
 device_recipe_path(DeviceID, Slug) ->
@@ -1933,9 +2033,9 @@ sidebar_li(ActivePath, Href, Content) ->
 node_sidebar(Devices, ActivePath) ->
     Boilerplate = boilerplate_index(),
     [
-        sidebar_li(ActivePath, <<"/info">>, <<"Node Info">>),
+        sidebar_li(ActivePath, <<"/info">>, <<"View All Node Info">>),
         [
-            <<"<li><p>Indexes</p><ul>">>,
+            <<"<li class=\"sidebar-flat-links\"><p>Indexes</p><ul>">>,
             sidebar_li(ActivePath, <<"/info/schema">>, <<"Schema">>),
             sidebar_li(ActivePath, <<"/info/spec">>, <<"Spec">>),
             sidebar_li(ActivePath, <<"/info/recipes">>, <<"Recipes">>),
@@ -1969,17 +2069,19 @@ node_sidebar(Devices, ActivePath) ->
     ].
 
 node_component_section_active(ActivePath) ->
-    case ActivePath of
-        <<"/info/schema">> -> <<" class=\"active\"">>;
-        <<"/info/spec">> -> <<" class=\"active\"">>;
-        <<"/info/recipes">> -> <<" class=\"active\"">>;
-        <<"/info/implementations">> -> <<" class=\"active\"">>;
-        _ -> <<>>
-    end.
+    Active =
+        case ActivePath of
+            <<"/info/schema">> -> <<" active">>;
+            <<"/info/spec">> -> <<" active">>;
+            <<"/info/recipes">> -> <<" active">>;
+            <<"/info/implementations">> -> <<" active">>;
+            _ -> <<>>
+        end,
+    <<" class=\"sidebar-flat-links">>, Active, <<"\"">>.
 
 node_sidebar_from_component(Devices, ActivePath) ->
     [
-        sidebar_li(ActivePath, <<"/info">>, <<"Node Info">>),
+        sidebar_li(ActivePath, <<"/info">>, <<"View All Node Info">>),
         [
             <<"<li">>, node_component_section_active(ActivePath), <<"><p>Index</p><ul>">>,
             [
@@ -1998,9 +2100,11 @@ device_sidebar(Data, ActivePath) ->
     Device = maps:get(<<"device">>, Data, #{}),
     DeviceID = maps:get(<<"id">>, Device, <<>>),
     SchemaOrder = maps:get(<<"schema-order">>, Data, []),
+    Spec = maps:get(<<"spec">>, Data, #{}),
+    SpecSections = spec_sections(Spec),
     Recipes = maps:get(<<"recipes">>, Data, #{}),
     [
-        sidebar_li(ActivePath, <<"/info">>, <<"Node Info">>),
+        sidebar_li(ActivePath, <<"/info">>, <<"View All Node Info">>),
         sidebar_li(ActivePath, device_info_path(DeviceID), [<<"~">>, esc(DeviceID)]),
         [
             <<"<li><p>Schema</p><ul>">>,
@@ -2011,7 +2115,19 @@ device_sidebar(Data, ActivePath) ->
             ],
             <<"</ul></li>">>
         ],
-        sidebar_li(ActivePath, device_spec_path(DeviceID), <<"Spec">>),
+        [
+            <<"<li><p>Spec</p><ul>">>,
+            sidebar_li(ActivePath, device_spec_path(DeviceID), <<"All spec">>),
+            [
+                sidebar_li(
+                    ActivePath,
+                    device_spec_section_path(DeviceID, SectionId),
+                    esc(Title)
+                )
+            || {SectionId, Title} <- SpecSections
+            ],
+            <<"</ul></li>">>
+        ],
         [
             <<"<li><p>Recipes</p><ul>">>,
             sidebar_li(ActivePath, device_recipes_path(DeviceID), <<"All recipes">>),
@@ -2034,21 +2150,21 @@ device_row(Device) ->
         <<"\"><strong>~">>,
         esc(maps:get(<<"name">>, Device)),
         <<"@">>, esc(maps:get(<<"version">>, Device)),
-        <<"</strong><span>">>, esc(maps:get(<<"schema">>, Device)),
+        <<"</strong><span>">>, esc(card_summary(maps:get(<<"schema">>, Device))),
         <<"</span><small>Open docs</small></a>">>
     ].
 
 boilerplate_section_cards(Index, Heading) ->
-  [
-    boilerplate_section_block(Section, Pages, Heading)
-  || {Section, Pages} <- boilerplate_grouped_pages(Index)
-  ].
+    [
+        boilerplate_section_block(Section, Pages, Heading)
+    || {Section, Pages} <- boilerplate_grouped_pages(Index)
+    ].
 
 boilerplate_section_block(Section, Pages, Heading) ->
     Tag = boilerplate_section_heading_tag(Heading),
     [
         <<"<section class=\"hb-docs-guide-section\">">>,
-        <<"<">>, Tag/binary, <<">">>, esc(Section), <<"</">>, Tag/binary, <<">">>,
+        ["<", Tag, ">", esc(Section), "</", Tag, ">"],
         <<"<div class=\"hb-docs-card-grid\">">>,
         [boilerplate_card_row(Page) || Page <- Pages],
         <<"</div></section>">>
@@ -2077,7 +2193,7 @@ boilerplate_card_row(Page) ->
         <<"<a class=\"hb-docs-card\" href=\"">>,
         esc(maps:get(<<"href">>, Page, <<>>)),
         <<"\"><strong>">>, esc(maps:get(<<"title">>, Page, <<>>)),
-        <<"</strong><span>">>, esc(maps:get(<<"summary">>, Page, <<>>)),
+        <<"</strong><span>">>, esc(card_summary(maps:get(<<"summary">>, Page, <<>>))),
         <<"</span></a>">>
     ].
 
@@ -2122,13 +2238,14 @@ param_pills(Params) ->
     || {Name, Param} <- lists:sort(maps:to_list(Params))
     ].
 
-recipe_nav(Recipes) ->
+recipe_nav(DeviceID, Recipes) ->
     [
         [
-            <<"<a class=\"hb-docs-card\" href=\"#recipe-">>, esc(Name), <<"\"><strong>">>,
-            esc(maps:get(<<"title">>, Recipe, Name)), <<"</strong><span>">>,
-            esc(maps:get(<<"summary">>, Recipe, <<>>)), <<"</span><small>">>,
-            esc(hb_util:bin(maps:get(<<"runnable-block-count">>, Recipe, 0))),
+            <<"<a class=\"hb-docs-card\" href=\"">>,
+            esc(device_recipe_path(DeviceID, Name)),
+            <<"\"><strong>">>, esc(maps:get(<<"title">>, Recipe, Name)),
+            <<"</strong><span>">>, esc(card_summary(maps:get(<<"summary">>, Recipe, <<>>))),
+            <<"</span><small>">>, esc(hb_util:bin(maps:get(<<"runnable-block-count">>, Recipe, 0))),
             <<" runnable blocks</small></a>">>
         ]
     || {Name, Recipe} <- lists:sort(maps:to_list(Recipes))
@@ -2167,11 +2284,61 @@ render_spec_body(Spec) ->
         spec_tx_link_paragraph(Spec),
         case {Status, spec_markdown(Spec)} of
             {<<"present">>, Markdown} when byte_size(Markdown) > 0 ->
-                render_markdown(drop_first_h1(Markdown));
+                render_markdown_with_heading_ids(drop_first_h1(Markdown));
             _ ->
                 [<<"<p>">>, esc(maps:get(<<"summary">>, Spec, <<>>)), <<"</p>">>]
         end
     ].
+
+spec_sections(Spec) ->
+    case maps:get(<<"spec-status">>, Spec, <<"missing">>) of
+        <<"present">> ->
+            case spec_markdown(Spec) of
+                Markdown when byte_size(Markdown) > 0 ->
+                    spec_sections_from_markdown(drop_first_h1(Markdown));
+                _ ->
+                    []
+            end;
+        _ ->
+            []
+    end.
+
+spec_sections_from_markdown(Markdown) ->
+    spec_sections_from_lines(binary:split(Markdown, <<"\n">>, [global]), [], #{}).
+
+spec_sections_from_lines([], Acc, _UsedIds) ->
+    lists:reverse(Acc);
+spec_sections_from_lines([Line | Rest], Acc, UsedIds) ->
+    case heading(trim(Line)) of
+        {2, Text} ->
+            Plain = strip_inline_markdown(Text),
+            {SectionId, NewUsedIds} = unique_heading_slug(Plain, UsedIds),
+            spec_sections_from_lines(Rest, [{SectionId, Plain} | Acc], NewUsedIds);
+        _ ->
+            spec_sections_from_lines(Rest, Acc, UsedIds)
+    end.
+
+spec_section_lookup(Spec, SectionSlug) ->
+    case lists:keyfind(SectionSlug, 1, spec_sections(Spec)) of
+        false -> undefined;
+        {SectionSlug, Title} -> {SectionSlug, Title}
+    end.
+
+spec_section_markdown(Spec, SectionSlug) ->
+    case spec_markdown(Spec) of
+        Markdown when byte_size(Markdown) > 0 ->
+            case spec_section_lookup(Spec, SectionSlug) of
+                undefined ->
+                    <<>>;
+                {_Id, Title} ->
+                    case extract_markdown_section(drop_first_h1(Markdown), Title) of
+                        {ok, SectionMarkdown} -> SectionMarkdown;
+                        false -> <<>>
+                    end
+            end;
+        _ ->
+            <<>>
+    end.
 
 spec_tx_link_paragraph(Spec) ->
     case spec_tx_link(Spec, <<>>) of
@@ -2222,20 +2389,6 @@ params_table(DeviceID, Key, Params) ->
         <<"</tbody></table>">>
     ].
 
-recipe_rows(_DeviceID, Recipes) ->
-    [
-        [
-            <<"<article class=\"recipe markdown-section\" id=\"recipe-">>, esc(Name), <<"\">">>,
-            <<"<header class=\"recipe-head\"><p class=\"eyebrow\">">>,
-            esc(maps:get(<<"source-relative">>, Recipe, <<>>)),
-            <<"</p><h3>">>, esc(maps:get(<<"title">>, Recipe, Name)), <<"</h3><p>">>,
-            esc(maps:get(<<"summary">>, Recipe, <<>>)), <<"</p></header>">>,
-            render_markdown(drop_first_h1(recipe_markdown(Recipe))),
-            <<"</article>">>
-        ]
-    || {Name, Recipe} <- lists:sort(maps:to_list(Recipes))
-    ].
-
 recipe_markdown(Recipe) ->
     RelPath = maps:get(<<"source-relative">>, Recipe, <<>>),
     case file:read_file(binary_to_list(device_docs_path(RelPath))) of
@@ -2254,6 +2407,8 @@ docs_shell_assets() ->
         <<"<script src=\"/info/assets/prism-lua.min.js\"></script>">>,
         <<"<script src=\"/info/assets/prism-markdown.min.js\"></script>">>,
         <<"<script>">>, docs_page_enhancer_js(), <<"</script>">>,
+        <<"<script>">>, docs_page_toc_js(), <<"</script>">>,
+        <<"<script>">>, docs_footer_nav_js(), <<"</script>">>,
         <<"<script>">>, docs_mobile_nav_js(), <<"</script>">>,
         <<"<script src=\"/info/assets/example-runner.js\"></script>">>,
         <<"<script>">>,
@@ -2262,6 +2417,8 @@ docs_shell_assets() ->
         <<"if(window.HBDocsCodeChrome){window.HBDocsCodeChrome.refresh();}">>,
         <<"if(window.HBExampleRunner){window.HBExampleRunner.refresh();}">>,
         <<"if(window.HBDocsMobileNav){window.HBDocsMobileNav.init();}">>,
+        <<"if(window.HBDocsPageToc){window.HBDocsPageToc.init();}">>,
+        <<"if(window.HBDocsFooterNav){window.HBDocsFooterNav.init();}">>,
         <<"});">>,
         <<"</script>">>
     ].
@@ -2336,6 +2493,417 @@ docs_page_enhancer_js() ->
 	    }
 	  };
 	})();
+">>.
+
+docs_page_toc_js() ->
+    <<"
+(function () {
+  var tocScrollRoot = null;
+  var tocScrollHandler = null;
+  var tocScrollEndHandler = null;
+  var tocResizeHandler = null;
+  var tocObserver = null;
+  var tocScrollRaf = null;
+
+  function teardownPageTocScroll() {
+    if (tocObserver) {
+      tocObserver.disconnect();
+      tocObserver = null;
+    }
+    if (tocScrollRaf) {
+      window.cancelAnimationFrame(tocScrollRaf);
+      tocScrollRaf = null;
+    }
+    if (tocScrollRoot && tocScrollHandler) {
+      tocScrollRoot.removeEventListener('scroll', tocScrollHandler);
+    }
+    if (tocScrollRoot && tocScrollEndHandler) {
+      tocScrollRoot.removeEventListener('scrollend', tocScrollEndHandler);
+    }
+    if (tocResizeHandler) {
+      window.removeEventListener('resize', tocResizeHandler);
+    }
+    tocScrollRoot = null;
+    tocScrollHandler = null;
+    tocScrollEndHandler = null;
+    tocResizeHandler = null;
+  }
+
+  function getScrollEl() {
+    var content = document.querySelector('.content');
+    if (content) {
+      var overflowY = window.getComputedStyle(content).overflowY;
+      if (/(auto|scroll|overlay)/.test(overflowY) && content.scrollHeight > content.clientHeight + 1) {
+        return content;
+      }
+    }
+    return window;
+  }
+
+  function getHeaderHeight() {
+    var header = document.getElementById('site-header');
+    if (!header || window.getComputedStyle(header).display === 'none') return 0;
+    return header.getBoundingClientRect().height;
+  }
+
+  function getHeaderScrollOffset() {
+    return getHeaderHeight() + 12;
+  }
+
+  function getAnchorIdFromHref(href) {
+    if (!href) return '';
+    var idMatch = href.match(/[?&]id=([^&]+)/);
+    if (idMatch) return decodeURIComponent(idMatch[1]);
+    var hash = href.split('#').pop() || '';
+    return hash.replace(/^\\//, '');
+  }
+
+  function slugify(text) {
+    return String(text || '')
+      .trim()
+      .toLowerCase()
+      .replace(/[^\\w\\s-]/g, '')
+      .replace(/\\s+/g, '-')
+      .replace(/-+/g, '-');
+  }
+
+  function resolveHeadingLink(heading, usedIds) {
+    var anchor = heading.querySelector('a.anchor');
+    if (anchor) {
+      var anchorId = getAnchorIdFromHref(anchor.getAttribute('href') || '');
+      if (anchorId && !heading.id) heading.id = anchorId;
+      if (heading.id) {
+        usedIds[heading.id] = true;
+        return { href: anchor.getAttribute('href') || ('#' + heading.id), id: heading.id };
+      }
+    }
+    if (heading.id) {
+      usedIds[heading.id] = true;
+      return { href: '#' + heading.id, id: heading.id };
+    }
+    var base = slugify(heading.textContent || '');
+    if (!base) return null;
+    var id = base;
+    var suffix = 2;
+    while (usedIds[id]) {
+      id = base + '-' + suffix;
+      suffix += 1;
+    }
+    heading.id = id;
+    usedIds[id] = true;
+    return { href: '#' + id, id: id };
+  }
+
+  function addPageToc() {
+    if (!document.body.classList.contains('hb-docs-protocol')) return;
+    teardownPageTocScroll();
+    document.body.classList.remove('page-toc-active');
+    document.querySelector('.page-toc')?.remove();
+
+    var markdownSection = document.querySelector('#main.markdown-section') ||
+      document.querySelector('.markdown-section');
+    var headings = markdownSection
+      ? markdownSection.querySelectorAll('h2, h3')
+      : document.querySelectorAll('.markdown-section h2, .markdown-section h3');
+    if (!headings.length) return;
+
+    var toc = document.createElement('aside');
+    toc.className = 'page-toc';
+    toc.setAttribute('aria-label', 'On this page');
+
+    var tocNav = document.createElement('nav');
+    tocNav.className = 'page-toc-nav';
+    tocNav.setAttribute('aria-label', 'On this page sections');
+
+    var tocProgress = document.createElement('div');
+    tocProgress.className = 'page-toc-progress';
+    tocProgress.setAttribute('aria-hidden', 'true');
+    tocProgress.innerHTML =
+      '<span class=\"page-toc-progress-rail\"></span>' +
+      '<span class=\"page-toc-progress-indicator\"></span>';
+
+    var tocLinksWrap = document.createElement('div');
+    tocLinksWrap.className = 'page-toc-links';
+
+    tocNav.appendChild(tocProgress);
+    tocNav.appendChild(tocLinksWrap);
+    toc.appendChild(tocNav);
+
+    var tocLinks = [];
+    var usedIds = {};
+    headings.forEach(function (heading) {
+      var linkInfo = resolveHeadingLink(heading, usedIds);
+      if (!linkInfo) return;
+      var link = document.createElement('a');
+      link.href = linkInfo.href;
+      link.textContent = (heading.textContent || '').trim();
+      link.dataset.level = heading.tagName.toLowerCase();
+      tocLinksWrap.appendChild(link);
+      tocLinks.push({ link: link, heading: heading });
+    });
+
+    if (tocLinks.length <= 1) {
+      return;
+    }
+
+    document.body.classList.add('page-toc-active');
+    document.body.appendChild(toc);
+
+    var scrollRoot = getScrollEl();
+    var tocSpySuppressUntil = 0;
+
+    function getScrollTop() {
+      return scrollRoot === window ? window.pageYOffset : scrollRoot.scrollTop;
+    }
+
+    function getScrollHeight() {
+      return scrollRoot === window
+        ? Math.max(document.documentElement.scrollHeight, document.body.scrollHeight)
+        : scrollRoot.scrollHeight;
+    }
+
+    function getViewportHeight() {
+      return scrollRoot === window ? window.innerHeight : scrollRoot.clientHeight;
+    }
+
+    function getHeadingDocumentY(heading) {
+      if (scrollRoot === window) {
+        return heading.getBoundingClientRect().top + window.pageYOffset;
+      }
+      var rootRect = scrollRoot.getBoundingClientRect();
+      return heading.getBoundingClientRect().top - rootRect.top + scrollRoot.scrollTop;
+    }
+
+    function scrollToY(targetY) {
+      var top = Math.max(0, targetY);
+      if (scrollRoot === window) {
+        window.scrollTo({ top: top, behavior: 'smooth' });
+      } else {
+        scrollRoot.scrollTo({ top: top, behavior: 'smooth' });
+      }
+    }
+
+    function scrollToHeading(heading, linkHref) {
+      var offset = getHeaderScrollOffset();
+      scrollToY(getHeadingDocumentY(heading) - offset);
+      tocSpySuppressUntil = Date.now() + 900;
+      if (linkHref) {
+        history.replaceState(null, '', linkHref);
+      }
+      window.setTimeout(function () {
+        setActiveTocLink(heading.id);
+      }, 0);
+    }
+
+    function updatePageTocProgress() {
+      var indicator = toc.querySelector('.page-toc-progress-indicator');
+      var progress = toc.querySelector('.page-toc-progress');
+      var active = tocLinksWrap.querySelector('a.active');
+      if (!indicator || !progress || !active) {
+        if (indicator) indicator.style.opacity = '0';
+        return;
+      }
+
+      var progressRect = progress.getBoundingClientRect();
+      var activeRect = active.getBoundingClientRect();
+      var top = activeRect.top - progressRect.top;
+
+      indicator.style.opacity = '1';
+      indicator.style.height = activeRect.height + 'px';
+      indicator.style.transform = 'translateY(' + top + 'px)';
+    }
+
+    function setActiveTocLink(targetId) {
+      tocLinks.forEach(function (item) {
+        var active = item.heading.id === targetId;
+        item.link.classList.toggle('active', active);
+      });
+      updatePageTocProgress();
+    }
+
+    function resolveActiveTocIndex() {
+      if (!tocLinks.length) return 0;
+
+      var offset = getHeaderScrollOffset();
+      var scrollTop = getScrollTop();
+      var maxScroll = Math.max(0, getScrollHeight() - getViewportHeight());
+
+      if (scrollTop <= 1) {
+        return 0;
+      }
+      if (maxScroll > 0 && scrollTop >= maxScroll - 1) {
+        return tocLinks.length - 1;
+      }
+
+      var anchorY = scrollTop + offset;
+      var activeIndex = 0;
+      for (var i = 0; i < tocLinks.length; i++) {
+        if (getHeadingDocumentY(tocLinks[i].heading) <= anchorY + 1) {
+          activeIndex = i;
+        }
+      }
+      return activeIndex;
+    }
+
+    function syncActiveTocFromScroll() {
+      if (!markdownSection || !tocLinks.length) return;
+      if (Date.now() < tocSpySuppressUntil) return;
+      var activeIndex = resolveActiveTocIndex();
+      setActiveTocLink(tocLinks[activeIndex].heading.id);
+    }
+
+    function scheduleTocSync() {
+      if (tocScrollRaf) return;
+      tocScrollRaf = window.requestAnimationFrame(function () {
+        tocScrollRaf = null;
+        syncActiveTocFromScroll();
+      });
+    }
+
+    tocLinksWrap.addEventListener('click', function (event) {
+      var link = event.target.closest('a');
+      if (!link || !tocLinksWrap.contains(link)) return;
+      var linkHref = link.getAttribute('href') || '';
+      var targetId = getAnchorIdFromHref(linkHref);
+      var item = tocLinks.find(function (entry) {
+        return entry.heading.id === targetId;
+      });
+      if (!item) return;
+      event.preventDefault();
+      scrollToHeading(item.heading, linkHref);
+    });
+
+    tocScrollHandler = scheduleTocSync;
+    tocScrollEndHandler = syncActiveTocFromScroll;
+    tocScrollRoot = scrollRoot === window ? window : scrollRoot;
+    tocScrollRoot.addEventListener('scroll', tocScrollHandler, { passive: true });
+    if ('onscrollend' in tocScrollRoot) {
+      tocScrollRoot.addEventListener('scrollend', tocScrollEndHandler, { passive: true });
+    }
+    tocResizeHandler = scheduleTocSync;
+    window.addEventListener('resize', tocResizeHandler, { passive: true });
+
+    tocObserver = new IntersectionObserver(
+      function () {
+        scheduleTocSync();
+      },
+      {
+        root: scrollRoot === window ? null : scrollRoot,
+        rootMargin: '-' + getHeaderScrollOffset() + 'px 0px -70% 0px',
+        threshold: [0, 1]
+      }
+    );
+    tocLinks.forEach(function (item) {
+      tocObserver.observe(item.heading);
+    });
+
+    window.requestAnimationFrame(function () {
+      window.requestAnimationFrame(syncActiveTocFromScroll);
+    });
+
+    toc.__updatePageTocProgress = updatePageTocProgress;
+    toc.__syncActiveTocFromScroll = syncActiveTocFromScroll;
+  }
+
+  if (!window.__pageTocProgressResizeBound) {
+    window.__pageTocProgressResizeBound = true;
+    window.addEventListener('resize', function () {
+      var tocEl = document.querySelector('.page-toc');
+      if (!tocEl) return;
+      if (typeof tocEl.__syncActiveTocFromScroll === 'function') {
+        tocEl.__syncActiveTocFromScroll();
+      } else if (typeof tocEl.__updatePageTocProgress === 'function') {
+        tocEl.__updatePageTocProgress();
+      }
+    }, { passive: true });
+  }
+
+  window.HBDocsPageToc = {
+    init: addPageToc,
+    refresh: addPageToc
+  };
+})();
+">>.
+
+docs_footer_nav_js() ->
+    <<"
+(function () {
+  function normalizePath(path) {
+    return String(path || '/')
+      .split('?')[0]
+      .split('#')[0]
+      .replace(/\\/$/, '') || '/';
+  }
+
+  function getSidebarLinks() {
+    return Array.from(document.querySelectorAll('.sidebar-nav a'))
+      .map(function (a) {
+        return {
+          href: a.getAttribute('href') || '',
+          text: (a.textContent || '').trim()
+        };
+      })
+      .filter(function (item) {
+        return item.href.charAt(0) === '/' && item.text;
+      });
+  }
+
+  function getCurrentLinkIndex(links) {
+    var current = normalizePath(
+      document.body.getAttribute('data-active-path') || window.location.pathname
+    );
+    return links.findIndex(function (item) {
+      return normalizePath(item.href) === current;
+    });
+  }
+
+  function addFooterNav() {
+    var section = document.querySelector('.markdown-section');
+    if (!section) return;
+    section.querySelector('.docs-footer-nav')?.remove();
+
+    var links = getSidebarLinks();
+    var index = getCurrentLinkIndex(links);
+    if (index < 0) return;
+
+    var nav = document.createElement('nav');
+    nav.className = 'docs-footer-nav';
+    nav.setAttribute('aria-label', 'Page navigation');
+
+    if (index > 0) {
+      var prev = links[index - 1];
+      var prevLink = document.createElement('a');
+      prevLink.className = 'docs-footer-link prev';
+      prevLink.href = prev.href;
+      prevLink.innerHTML =
+        '<span class=\"docs-footer-label\">Previous</span>' +
+        '<span class=\"docs-footer-title\"></span>';
+      prevLink.querySelector('.docs-footer-title').textContent = prev.text;
+      nav.appendChild(prevLink);
+    } else {
+      nav.appendChild(document.createElement('span'));
+    }
+
+    if (index < links.length - 1) {
+      var next = links[index + 1];
+      var nextLink = document.createElement('a');
+      nextLink.className = 'docs-footer-link next';
+      nextLink.href = next.href;
+      nextLink.innerHTML =
+        '<span class=\"docs-footer-label\">Next</span>' +
+        '<span class=\"docs-footer-title\"></span>';
+      nextLink.querySelector('.docs-footer-title').textContent = next.text;
+      nav.appendChild(nextLink);
+    }
+
+    if (nav.children.length) section.appendChild(nav);
+  }
+
+  window.HBDocsFooterNav = {
+    init: addFooterNav,
+    refresh: addFooterNav
+  };
+})();
 ">>.
 
 docs_mobile_nav_js() ->
@@ -2526,6 +3094,9 @@ docs_mobile_nav_js() ->
 
         var block = document.createElement('div');
         block.className = 'mobile-nav-section';
+        if (li.classList.contains('sidebar-flat-links')) {
+          block.classList.add('mobile-nav-flat-links');
+        }
         block.setAttribute('data-section', sectionId);
 
         var trigger = document.createElement('button');
@@ -2541,7 +3112,7 @@ docs_mobile_nav_js() ->
           var link = item.querySelector(':scope > a');
           if (!link) return;
           var mobileLink = document.createElement('a');
-          mobileLink.className = itemIndex === 0
+          mobileLink.className = (itemIndex === 0 || li.classList.contains('sidebar-flat-links'))
             ? 'mobile-nav-link'
             : 'mobile-nav-link mobile-nav-link-nested';
           mobileLink.href = link.getAttribute('href') || '#';
@@ -2707,38 +3278,42 @@ docs_asset_content_type(Parts) ->
 
 render_markdown(Markdown) ->
     Lines = binary:split(Markdown, <<"\n">>, [global]),
-    iolist_to_binary(render_markdown_lines(Lines, [], [])).
+    iolist_to_binary(render_markdown_lines(Lines, [], [], false, #{})).
 
-render_markdown_lines([], Para, Acc) ->
+render_markdown_with_heading_ids(Markdown) ->
+    Lines = binary:split(Markdown, <<"\n">>, [global]),
+    iolist_to_binary(render_markdown_lines(Lines, [], [], true, #{})).
+
+render_markdown_lines([], Para, Acc, _AddHeadingIds, _UsedIds) ->
     lists:reverse([flush_paragraph(Para) | Acc]);
-render_markdown_lines([Line | Rest], Para, Acc) ->
+render_markdown_lines([Line | Rest], Para, Acc, AddHeadingIds, UsedIds) ->
     Trim = trim(Line),
     case fence_language(Trim) of
         {ok, Lang} ->
             {CodeLines, After} = take_code_block(Rest, []),
             Block = render_code_block(Lang, lists:reverse(CodeLines)),
-            render_markdown_lines(After, [], [Block, flush_paragraph(Para) | Acc]);
+            render_markdown_lines(After, [], [Block, flush_paragraph(Para) | Acc], AddHeadingIds, UsedIds);
         false ->
             case table_block(Trim, Rest) of
                 {ok, Table, AfterTable} ->
-                    render_markdown_lines(AfterTable, [], [Table, flush_paragraph(Para) | Acc]);
+                    render_markdown_lines(AfterTable, [], [Table, flush_paragraph(Para) | Acc], AddHeadingIds, UsedIds);
                 false ->
                     case {Trim, heading(Trim), bullet_text(Trim), numbered_text(Trim)} of
                         {<<>>, _, _, _} ->
-                            render_markdown_lines(Rest, [], [flush_paragraph(Para) | Acc]);
+                            render_markdown_lines(Rest, [], [flush_paragraph(Para) | Acc], AddHeadingIds, UsedIds);
                         {_, {Level, Text}, _, _} ->
-                            H = render_heading(Level, Text),
-                            render_markdown_lines(Rest, [], [H, flush_paragraph(Para) | Acc]);
+                            {H, NewUsedIds} = render_heading(Level, Text, AddHeadingIds, UsedIds),
+                            render_markdown_lines(Rest, [], [H, flush_paragraph(Para) | Acc], AddHeadingIds, NewUsedIds);
                         {_, _, {ok, Text}, _} ->
                             {Items, AfterList} = take_list_block(Rest, unordered, [Text], []),
                             List = render_list(<<"ul">>, Items),
-                            render_markdown_lines(AfterList, [], [List, flush_paragraph(Para) | Acc]);
+                            render_markdown_lines(AfterList, [], [List, flush_paragraph(Para) | Acc], AddHeadingIds, UsedIds);
                         {_, _, _, {ok, Text}} ->
                             {Items, AfterList} = take_list_block(Rest, ordered, [Text], []),
                             List = render_list(<<"ol">>, Items),
-                            render_markdown_lines(AfterList, [], [List, flush_paragraph(Para) | Acc]);
+                            render_markdown_lines(AfterList, [], [List, flush_paragraph(Para) | Acc], AddHeadingIds, UsedIds);
                         _ ->
-                            render_markdown_lines(Rest, [Trim | Para], Acc)
+                            render_markdown_lines(Rest, [Trim | Para], Acc, AddHeadingIds, UsedIds)
                     end
             end
     end.
@@ -2757,10 +3332,75 @@ flush_paragraph(Lines) ->
     Text = iolist_to_binary(lists:join(<<" ">>, lists:reverse(Lines))),
     [<<"<p>">>, render_inline(Text), <<"</p>">>].
 
-render_heading(Level0, Text) ->
+render_heading(Level0, Text, AddHeadingIds, UsedIds) ->
     Level = max(3, min(6, Level0 + 2)),
     Tag = integer_to_binary(Level),
-    [<<"<h">>, Tag, <<">">>, render_inline(Text), <<"</h">>, Tag, <<">">>].
+    case AddHeadingIds =:= true andalso Level0 =:= 2 of
+        true ->
+            Plain = strip_inline_markdown(Text),
+            {HeadingId, NewUsedIds} = unique_heading_slug(Plain, UsedIds),
+            Heading = [
+                <<"<h">>, Tag, <<" id=\"">>, esc(HeadingId), <<"\">">>,
+                render_inline(Text),
+                <<"</h">>, Tag, <<">">>
+            ],
+            {Heading, NewUsedIds};
+        false ->
+            {[<<"<h">>, Tag, <<">">>, render_inline(Text), <<"</h">>, Tag, <<">">>], UsedIds}
+    end.
+
+unique_heading_slug(Text, UsedIds) ->
+    unique_heading_slug(heading_slug_base(Text), UsedIds, 2).
+
+unique_heading_slug(Base, UsedIds, _Suffix) when Base =:= <<>> ->
+    {Base, UsedIds};
+unique_heading_slug(Base, UsedIds, Suffix) ->
+    Candidate =
+        case Suffix of
+            2 -> Base;
+            N -> <<Base/binary, "-", (integer_to_binary(N))/binary>>
+        end,
+    case maps:is_key(Candidate, UsedIds) of
+        true ->
+            unique_heading_slug(Base, UsedIds, Suffix + 1);
+        false ->
+            {Candidate, maps:put(Candidate, true, UsedIds)}
+    end.
+
+heading_slug_base(Text) ->
+    collapse_hyphens(
+        slug_spaces_to_hyphens(
+            list_to_binary(slug_keep_chars(unicode:characters_to_list(hb_util:to_lower(hb_util:bin(Text))), []))
+        )
+    ).
+
+slug_keep_chars([], Acc) ->
+    lists:reverse(Acc);
+slug_keep_chars([C | Rest], Acc)
+    when (C >= $a andalso C =< $z) orelse (C >= $0 andalso C =< $9) orelse
+        C =:= $_ orelse C =:= $- orelse C =:= $\s ->
+    slug_keep_chars(Rest, [C | Acc]);
+slug_keep_chars([_ | Rest], Acc) ->
+    slug_keep_chars(Rest, Acc).
+
+slug_spaces_to_hyphens(Bin) ->
+    slug_spaces_to_hyphens(Bin, <<>>).
+
+slug_spaces_to_hyphens(<<>>, Acc) ->
+    Acc;
+slug_spaces_to_hyphens(<<" ", Rest/binary>>, Acc) ->
+    slug_spaces_to_hyphens(Rest, <<Acc/binary, "-">>);
+slug_spaces_to_hyphens(<<C, Rest/binary>>, Acc) ->
+    slug_spaces_to_hyphens(Rest, <<Acc/binary, C>>).
+
+collapse_hyphens(Bin) ->
+    collapse_hyphen_runs(Bin).
+
+collapse_hyphen_runs(Bin) ->
+    case binary:match(Bin, <<"--">>) of
+        nomatch -> Bin;
+        _ -> collapse_hyphen_runs(binary:replace(Bin, <<"--">>, <<"-">>, [global]))
+    end.
 
 render_code_block(Lang, Lines) ->
     NormLang = normalize_lang(Lang),
@@ -2901,6 +3541,27 @@ markdown_title(Markdown, Fallback) ->
 markdown_summary(Markdown) ->
     Lines = binary:split(drop_first_h1(Markdown), <<"\n">>, [global]),
     summary_from_lines(Lines).
+
+-define(CARD_SUMMARY_MAX, 120).
+
+card_summary(Summary) ->
+    Text = trim(hb_util:bin(Summary)),
+    truncate_card_summary(first_sentence(Text), ?CARD_SUMMARY_MAX).
+
+first_sentence(<<>>) ->
+    <<>>;
+first_sentence(Text) ->
+    case binary:match(Text, <<". ">>) of
+        {Pos, _} ->
+            binary:part(Text, 0, Pos + 1);
+        nomatch ->
+            Text
+    end.
+
+truncate_card_summary(Text, Max) when byte_size(Text) =< Max ->
+    Text;
+truncate_card_summary(Text, Max) ->
+    <<(binary:part(Text, 0, Max))/binary, "...">>.
 
 summary_from_lines([]) ->
     <<>>;
@@ -3181,8 +3842,29 @@ html_negotiation_test() ->
     ?assert(binary:match(Body, <<"mobile-nav-drawer">>) =/= nomatch),
     ?assert(binary:match(Body, <<"mobile-nav-search-input">>) =/= nomatch),
     ?assert(binary:match(Body, <<"HBDocsMobileNav">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"HBDocsFooterNav">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"docs-footer-link prev">>) =/= nomatch),
     ?assert(binary:match(Body, <<"data-active-path=\"/~arweave@2.9/info\"">>) =/= nomatch),
-    ?assert(binary:match(Body, <<"class=\"language-bash\"">>) =/= nomatch).
+    ?assert(binary:match(Body, <<"href=\"/~arweave@2.9/info/recipes/read-transaction-messages\"">>) =/= nomatch),
+    ?assertEqual(nomatch, binary:match(Body, <<"id=\"recipe-">>)),
+    {ok, RecipeHTML} = device_info_route(
+        ?ARWEAVE_DEVICE,
+        [<<"recipes">>, <<"read-transaction-messages">>],
+        #{ <<"accept">> => <<"text/html">> },
+        #{}
+    ),
+    ?assert(binary:match(maps:get(<<"body">>, RecipeHTML), <<"class=\"language-bash\"">>) =/= nomatch).
+
+spec_sections_test() ->
+    Spec = maps:get(<<"spec">>, device_info_data(?MESSAGE_DEVICE, #{})),
+    Sections = spec_sections(Spec),
+    ?assert(length(Sections) >= 8),
+    ?assertEqual(<<"1-overview">>, element(1, hd(Sections))),
+    ?assertEqual(<<"1. Overview">>, element(2, hd(Sections))),
+    ?assert(lists:any(
+        fun({Id, _Title}) -> Id =:= <<"4-resolved-keys-normative">> end,
+        Sections
+    )).
 
 message_markdown_rendering_test() ->
     {ok, HTML} = device_info(?MESSAGE_DEVICE, #{ <<"accept">> => <<"text/html">> }, #{}),
@@ -3211,6 +3893,11 @@ message_markdown_rendering_test() ->
     ?assertEqual(nomatch, binary:match(SpecBody, <<"**Dispatch shape">>)),
     ?assertEqual(nomatch, binary:match(SpecBody, <<"PRESENT">>)),
     ?assertEqual(nomatch, binary:match(SpecBody, <<"specs/message@1.0.md">>)),
+    ?assert(binary:match(SpecBody, <<"<h4 id=\"1-overview\">">>) =/= nomatch),
+    ?assert(binary:match(SpecBody, <<"<li class=\"active\"><a href=\"/~message@1.0/info/spec\">">>) =/= nomatch),
+    ?assert(binary:match(SpecBody, <<"href=\"/~message@1.0/info/spec/1-overview\"">>) =/= nomatch),
+    ?assert(binary:match(SpecBody, <<"href=\"/~message@1.0/info/spec/4-resolved-keys-normative\"">>) =/= nomatch),
+    ?assertEqual(nomatch, binary:match(SpecBody, <<"href=\"/~message@1.0/info/spec#">>)),
     ?assert(binary:match(Body, <<"<table><thead>">>) =/= nomatch),
     ?assertEqual(nomatch, binary:match(Body, <<"| Key | What it does |">>)).
 
@@ -3243,6 +3930,122 @@ schema_parameter_route_test() ->
     ?assert(binary:match(Body, <<"Schema Parameter">>) =/= nomatch),
     ?assert(binary:match(Body, <<"exclude-data">>) =/= nomatch),
     ?assert(binary:match(Body, <<"Return only transaction headers">>) =/= nomatch).
+
+recipes_index_route_test() ->
+    {ok, HTML} = device_info_route(
+        ?MESSAGE_DEVICE,
+        [<<"recipes">>],
+        #{ <<"accept">> => <<"text/html">> },
+        #{}
+    ),
+    Body = maps:get(<<"body">>, HTML),
+    ?assert(binary:match(Body, <<"message@1.0 recipes">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"href=\"/~message@1.0/info/recipes/build-a-message-and-serialize-it\"">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"<li class=\"active\"><a href=\"/~message@1.0/info/recipes\">">>) =/= nomatch),
+    ?assertEqual(nomatch, binary:match(Body, <<"id=\"recipe-">>)),
+    ?assertEqual(nomatch, binary:match(Body, <<"Runnable Workflows">>)).
+
+recipe_route_test() ->
+    Msgs =
+        hb_singleton:from(
+            #{
+                <<"path">> =>
+                    <<"/~message@1.0/info/recipes/build-a-message-and-serialize-it">>
+            },
+            #{}
+        ),
+    Req = #{ <<"accept">> => <<"text/html">> },
+    {true, {ok, HTML}} = maybe_info_request(Msgs, Req, #{}),
+    Body = maps:get(<<"body">>, HTML),
+    ?assert(binary:match(Body, <<"Recipe</p><h1>message@1.0">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"data-active-path=\"/~message@1.0/info/recipes/build-a-message-and-serialize-it\"">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"<li class=\"active\"><a href=\"/~message@1.0/info/recipes/build-a-message-and-serialize-it\">">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"~message@1.0">>) =/= nomatch).
+
+footer_nav_test() ->
+    {ok, HTML} = device_info_route(
+        ?MESSAGE_DEVICE,
+        [<<"recipes">>, <<"build-a-message-and-serialize-it">>],
+        #{ <<"accept">> => <<"text/html">> },
+        #{}
+    ),
+    Body = maps:get(<<"body">>, HTML),
+    ActivePath = <<"/~message@1.0/info/recipes/build-a-message-and-serialize-it">>,
+    ?assert(binary:match(Body, <<"HBDocsFooterNav">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"data-active-path=\"", ActivePath/binary, "\"">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"<a href=\"/~message@1.0/info/recipes\">All recipes</a>">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"<a href=\"/~message@1.0/info/recipes/build-a-typed-message-and-read-fields\">">>) =/= nomatch),
+    {ok, SpecSectionHTML} = device_info_route(
+        ?MESSAGE_DEVICE,
+        [<<"spec">>, <<"1-overview">>],
+        #{ <<"accept">> => <<"text/html">> },
+        #{}
+    ),
+    SpecBody = maps:get(<<"body">>, SpecSectionHTML),
+    ?assert(binary:match(SpecBody, <<"data-active-path=\"/~message@1.0/info/spec/1-overview\"">>) =/= nomatch),
+    ?assert(binary:match(SpecBody, <<"<a href=\"/~message@1.0/info/spec\">All spec</a>">>) =/= nomatch),
+    ?assert(binary:match(SpecBody, <<"<a href=\"/~message@1.0/info/spec/2-concepts-terminology\">">>) =/= nomatch).
+
+spec_section_route_test() ->
+    Msgs =
+        hb_singleton:from(
+            #{
+                <<"path">> => <<"/~message@1.0/info/spec/1-overview">>
+            },
+            #{}
+        ),
+    Req = #{ <<"accept">> => <<"text/html">> },
+    {true, {ok, HTML}} = maybe_info_request(Msgs, Req, #{}),
+    Body = maps:get(<<"body">>, HTML),
+    ?assert(binary:match(Body, <<"Specification</p><h1>message@1.0 / 1. Overview">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"data-active-path=\"/~message@1.0/info/spec/1-overview\"">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"<li class=\"active\"><a href=\"/~message@1.0/info/spec/1-overview\">">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"identity device">>) =/= nomatch),
+    ?assertEqual(nomatch, binary:match(Body, <<"href=\"/~message@1.0/info/spec#">>)),
+    {ok, NotFound} = device_info_route(
+        ?MESSAGE_DEVICE,
+        [<<"spec">>, <<"missing-section">>],
+        #{ <<"accept">> => <<"text/html">> },
+        #{}
+    ),
+    ?assertEqual(404, maps:get(<<"status">>, NotFound)).
+
+device_recipes_summary_test() ->
+    {ok, HTML} = device_info(?MESSAGE_DEVICE, #{ <<"accept">> => <<"text/html">> }, #{}),
+    Body = maps:get(<<"body">>, HTML),
+    ?assert(binary:match(Body, <<"<h2 id=\"recipes\">Recipes</h2>">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"href=\"/~message@1.0/info/recipes/build-a-typed-message-and-read-fields\"">>) =/= nomatch),
+    ?assertEqual(nomatch, binary:match(Body, <<"id=\"recipe-">>)),
+    ?assertEqual(nomatch, binary:match(Body, <<"Runnable Workflows">>)).
+
+card_summary_test() ->
+    Long =
+        <<"Use `~arweave@2.9` as the publishing boundary for signed ANS-104 data items "
+            "and signed L1 transactions. This workflow also shows extra detail.">>,
+    Short = card_summary(Long),
+    ?assertEqual(
+        <<"Use `~arweave@2.9` as the publishing boundary for signed ANS-104 data items "
+            "and signed L1 transactions.">>,
+        Short
+    ),
+    ?assert(byte_size(Short) =< ?CARD_SUMMARY_MAX),
+    OneLine = <<"Fetch Arweave transactions as HyperBEAM messages.">>,
+    ?assertEqual(OneLine, card_summary(OneLine)),
+    OverLimit = lists:duplicate(130, $a),
+    Truncated = card_summary(OverLimit),
+    ?assertEqual(123, byte_size(Truncated)),
+    ?assertEqual(<<"...">>, binary:part(Truncated, 120, 3)).
+
+recipe_card_layout_test() ->
+    {ok, HTML} = device_info(?ARWEAVE_DEVICE, #{ <<"accept">> => <<"text/html">> }, #{}),
+    Body = maps:get(<<"body">>, HTML),
+    PostSigned = maps:get(<<"post-signed-data-to-arweave">>, maps:get(<<"recipes">>, device_info_data(?ARWEAVE_DEVICE, #{}))),
+    FullSummary = maps:get(<<"summary">>, PostSigned),
+    CardSummary = card_summary(FullSummary),
+    ?assert(byte_size(CardSummary) < byte_size(FullSummary)),
+    ?assert(binary:match(Body, CardSummary) =/= nomatch),
+    ?assertEqual(nomatch, binary:match(Body, <<"This workflow also shows the expected behavior">>)),
+    ?assert(binary:match(Body, <<"runnable blocks</small></a>">>) =/= nomatch).
 
 implementations_route_test() ->
     {ok, HTML} = device_info_route(
