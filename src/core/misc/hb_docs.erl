@@ -1413,12 +1413,10 @@ render_spec_section_page_html(Payload) ->
     ActivePath = device_spec_section_path(DeviceID, SectionId),
     Content =
         [
-            <<"<article class=\"spec-section markdown-section\">">>,
             <<"<p class=\"eyebrow\">Specification</p><h1>">>, esc(DeviceID),
-            <<" / ">>, esc(Title), <<"</h1>">>,
+            <<" / ">>, esc(spec_section_nav_label(Title)), <<"</h1>">>,
             spec_tx_link_paragraph(Spec),
-            render_markdown_with_heading_ids(spec_section_markdown(Spec, SectionId)),
-            <<"</article>">>
+            render_markdown_with_heading_ids(spec_section_markdown(Spec, SectionId))
         ],
     docs_page_html(<<"HyperBEAM Spec">>, ActivePath, device_sidebar(Data, ActivePath), Content).
 
@@ -1449,14 +1447,12 @@ render_recipe_html(Payload) ->
     ActivePath = device_recipe_path(DeviceID, Slug),
     Content =
         [
-            <<"<article class=\"recipe markdown-section\">">>,
             <<"<p class=\"eyebrow\">Recipe</p><h1>">>, esc(DeviceID),
             <<" / ">>, esc(maps:get(<<"title">>, Recipe, Slug)), <<"</h1>">>,
             <<"<p class=\"eyebrow\">">>,
             esc(maps:get(<<"source-relative">>, Recipe, <<>>)),
             <<"</p>">>,
-            render_markdown(drop_first_h1(recipe_markdown(Recipe))),
-            <<"</article>">>
+            render_markdown(drop_first_h1(recipe_markdown(Recipe)))
         ],
     docs_page_html(<<"HyperBEAM Recipe">>, ActivePath, device_sidebar(Data, ActivePath), Content).
 
@@ -1576,6 +1572,9 @@ docs_site_header() ->
     <<
         "<header class=\"site-header\" id=\"site-header\">"
         "<div class=\"site-header-top\">"
+        "<div class=\"site-header-start\">"
+        "<a class=\"site-brand site-header-home\" href=\"/info\">View All Node Info</a>"
+        "</div>"
         "<div class=\"site-header-actions\">"
         "<button type=\"button\" class=\"mobile-menu-toggle\" id=\"mobile-menu-toggle\" "
         "aria-label=\"Open sections menu\" aria-expanded=\"false\" aria-controls=\"mobile-nav-panel\">"
@@ -1652,7 +1651,13 @@ hb_docs_overrides_css() ->
 body.hb-docs-protocol {
   background: var(--bg);
   color: var(--text);
-  --content-max: none;
+  --text-page-title: clamp(1.28125rem, 0.7rem + 2.3vw, 1.875rem);
+  --text-section-title: clamp(1.046875rem, 0.605rem + 1.65vw, 1.3125rem);
+  --text-subheading: clamp(0.9375rem, 1.2vw, 1.0625rem);
+  --text-lead: clamp(0.90625rem, 1.05vw, 1rem);
+  --text-body: clamp(0.8125rem, 0.925vw, 0.875rem);
+  --text-ui: clamp(0.75rem, 0.875vw, 0.8125rem);
+  --text-caption: clamp(0.6875rem, 0.8vw, 0.75rem);
 }
 body.hb-docs-protocol .site-header { display: none; }
 body.hb-docs-protocol .sidebar { top: 0 !important; }
@@ -1679,15 +1684,24 @@ body.hb-docs-protocol .content {
 }
 body.hb-docs-protocol .content .markdown-section,
 body.hb-docs-protocol .markdown-section {
-  max-width: none !important;
-  margin: 0 !important;
-  width: 100% !important;
+  max-width: var(--content-max) !important;
+  margin: 0 auto !important;
+  width: auto !important;
   box-sizing: border-box;
 }
 body.hb-docs-protocol .content .markdown-section { padding-top: 36px !important; }
 body.hb-docs-protocol .markdown-section table {
   width: 100%;
   max-width: 100%;
+}
+body.hb-docs-protocol .markdown-section h3 {
+  font-size: 1.025rem !important;
+}
+body.hb-docs-protocol .page-toc-links a[data-level='h2'] {
+  font-size: var(--text-body);
+}
+body.hb-docs-protocol .page-toc-links a[data-level='h3'] {
+  font-size: var(--text-caption);
 }
 body.hb-docs-protocol .site-header-nav-zone { display: none; }
 body.hb-docs-protocol .sidebar-nav > ul > li.sidebar-flat-links > ul > li > a,
@@ -1711,6 +1725,22 @@ body.hb-docs-protocol .sidebar-nav > ul > li > ul > li:first-child.active > a:ho
   opacity: 1;
   padding-left: var(--sidebar-link-pad-x) !important;
   padding-right: var(--sidebar-link-pad-x) !important;
+}
+body.hb-docs-protocol .sidebar-nav > ul > li.sidebar-flat-links > ul > li:not(:first-child) > a,
+body.hb-docs-protocol .sidebar-nav > ul > li.sidebar-flat-links > ul > li:not(:first-child) > a:hover,
+body.hb-docs-protocol .sidebar-nav > ul > li.sidebar-flat-links > ul > li:not(:first-child).active > a,
+body.hb-docs-protocol .sidebar-nav > ul > li.sidebar-flat-links > ul > li:not(:first-child).active > a:hover {
+  padding-left: var(--sidebar-link-pad-x) !important;
+  padding-right: var(--sidebar-link-pad-x) !important;
+  color: var(--sidebar-link-color) !important;
+  opacity: 1;
+}
+body.hb-docs-protocol .sidebar-nav > ul > li.sidebar-flat-links > ul > li:not(:first-child).active > a,
+body.hb-docs-protocol .sidebar-nav > ul > li.sidebar-flat-links > ul > li:not(:first-child).active > a:hover {
+  color: var(--sidebar-link-active-color) !important;
+  background: var(--sidebar-link-active-bg) !important;
+  font-weight: 600 !important;
+  opacity: 1;
 }
 body.hb-docs-protocol .sidebar-nav > ul > li > ul > li:not(:first-child) > a {
   color: var(--sidebar-nested-link-color) !important;
@@ -1768,7 +1798,8 @@ body.hb-docs-protocol .eyebrow {
 .markdown-section a.hb-docs-card:hover,
 .markdown-section a.hb-docs-card strong,
 .markdown-section a.hb-docs-card span,
-.markdown-section a.hb-docs-card small {
+.markdown-section a.hb-docs-card small,
+.markdown-section a.hb-docs-recipe-card .hb-docs-recipe-card-cta {
   text-decoration: none !important;
 }
 .hb-docs-card {
@@ -1805,6 +1836,84 @@ body.hb-docs-protocol .eyebrow {
   padding-top: 10px;
   color: var(--text-secondary);
   font-size: var(--text-caption);
+}
+.hb-docs-recipe-card {
+  padding: 0;
+  border: none;
+  background: var(--bg-muted);
+}
+.hb-docs-recipe-card:hover {
+  background: var(--bg-hover);
+}
+.hb-docs-recipe-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+}
+.hb-docs-recipe-card-icon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+  color: var(--text-secondary);
+}
+.hb-docs-recipe-card-icon svg {
+  width: 18px;
+  height: 18px;
+}
+.hb-docs-recipe-card-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--text-ui);
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--text);
+  overflow: hidden;
+  max-height: 2.7em;
+  text-wrap: pretty;
+  text-wrap: balance;
+}
+.hb-docs-recipe-card-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  gap: 0;
+  padding: 14px;
+  min-height: 0;
+}
+.hb-docs-recipe-card-desc {
+  flex: 1 1 auto;
+  margin-top: 6px;
+  color: var(--text-secondary);
+  opacity: 0.72;
+  font-size: var(--text-caption);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.hb-docs-recipe-card-footer {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  flex: 0 0 auto;
+  margin-top: auto;
+  padding-top: 14px;
+}
+.hb-docs-recipe-card-cta {
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+.hb-docs-recipe-card-meta {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+  font-size: var(--text-caption);
+  opacity: 0.65;
 }
 .hb-docs-section-index {
   display: grid;
@@ -1874,15 +1983,16 @@ body.hb-docs-protocol .eyebrow {
   color: var(--text-secondary);
   font-size: var(--text-caption);
 }
-.recipe {
-  margin: 1.5rem 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-}
 @media (max-width: 1000px) {
   body.hb-docs-protocol .site-header { display: block; }
   body.hb-docs-protocol.mobile-nav-open .site-header { z-index: 280; }
+  body.hb-docs-protocol .site-header-home {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+  }
   body.hb-docs-protocol .sidebar { top: var(--header-height) !important; }
   body.hb-docs-protocol .content { padding-top: var(--header-height) !important; }
   .hb-docs-section-index {
@@ -2068,22 +2178,21 @@ node_sidebar(Devices, ActivePath) ->
         ]
     ].
 
-node_component_section_active(ActivePath) ->
-    Active =
-        case ActivePath of
-            <<"/info/schema">> -> <<" active">>;
-            <<"/info/spec">> -> <<" active">>;
-            <<"/info/recipes">> -> <<" active">>;
-            <<"/info/implementations">> -> <<" active">>;
-            _ -> <<>>
-        end,
-    <<" class=\"sidebar-flat-links">>, Active, <<"\"">>.
+index_section_li_open(ActivePath) ->
+    case ActivePath of
+        <<"/info/schema">> -> <<"<li class=\"sidebar-flat-links active\">">>;
+        <<"/info/spec">> -> <<"<li class=\"sidebar-flat-links active\">">>;
+        <<"/info/recipes">> -> <<"<li class=\"sidebar-flat-links active\">">>;
+        <<"/info/implementations">> -> <<"<li class=\"sidebar-flat-links active\">">>;
+        _ -> <<"<li class=\"sidebar-flat-links\">">>
+    end.
 
 node_sidebar_from_component(Devices, ActivePath) ->
     [
         sidebar_li(ActivePath, <<"/info">>, <<"View All Node Info">>),
         [
-            <<"<li">>, node_component_section_active(ActivePath), <<"><p>Index</p><ul>">>,
+            index_section_li_open(ActivePath),
+            <<"<p>Index</p><ul>">>,
             [
                 sidebar_li(
                     ActivePath,
@@ -2122,7 +2231,7 @@ device_sidebar(Data, ActivePath) ->
                 sidebar_li(
                     ActivePath,
                     device_spec_section_path(DeviceID, SectionId),
-                    esc(Title)
+                    esc(spec_section_nav_label(Title))
                 )
             || {SectionId, Title} <- SpecSections
             ],
@@ -2238,15 +2347,109 @@ param_pills(Params) ->
     || {Name, Param} <- lists:sort(maps:to_list(Params))
     ].
 
+recipe_icon_keywords() ->
+    [
+        {<<"bundle">>, <<"package">>},
+        {<<"reassembl">>, <<"puzzle-piece">>},
+        {<<"inspect">>, <<"magnifying-glass">>},
+        {<<"post">>, <<"upload">>},
+        {<<"upload">>, <<"upload">>},
+        {<<"chunk">>, <<"stack">>},
+        {<<"offset">>, <<"crosshair">>},
+        {<<"resolve">>, <<"crosshair">>},
+        {<<"verify">>, <<"seal-check">>},
+        {<<"commitment">>, <<"seal-check">>},
+        {<<"serialize">>, <<"export">>},
+        {<<"typed">>, <<"book-open">>},
+        {<<"key">>, <<"key">>},
+        {<<"list">>, <<"list-bullets">>},
+        {<<"message">>, <<"chat-dots">>},
+        {<<"transaction">>, <<"chat-dots">>},
+        {<<"raw">>, <<"database">>},
+        {<<"range">>, <<"database">>},
+        {<<"read">>, <<"book-open">>}
+    ].
+
+recipe_icon_paths() ->
+    #{
+        <<"package">> =>
+            <<"M223.68,66.15,135.68,18a15.88,15.88,0,0,0-15.36,0l-88,48.17a16,16,0,0,0-8.32,14v95.64a16,16,0,0,0,8.32,14l88,48.17a15.88,15.88,0,0,0,15.36,0l88-48.17a16,16,0,0,0,8.32-14V80.18A16,16,0,0,0,223.68,66.15ZM128,32l80.34,44-29.77,16.3-80.35-44ZM128,120,47.66,76l33.9-18.56,80.34,44ZM40,90l80,43.78v85.79L40,175.82Zm176,85.78h0l-80,43.79V133.82l32-17.51V152a8,8,0,0,0,16,0V107.55L216,90v85.77Z">>,
+        <<"upload">> =>
+            <<"M240,136v64a16,16,0,0,1-16,16H32a16,16,0,0,1-16-16V136a16,16,0,0,1,16-16H80a8,8,0,0,1,0,16H32v64H224V136H176a8,8,0,0,1,0-16h48A16,16,0,0,1,240,136ZM85.66,77.66,120,43.31V128a8,8,0,0,0,16,0V43.31l34.34,34.35a8,8,0,0,0,11.32-11.32l-48-48a8,8,0,0,0-11.32,0l-48,48A8,8,0,0,0,85.66,77.66ZM200,168a12,12,0,1,0-12,12A12,12,0,0,0,200,168Z">>,
+        <<"book-open">> =>
+            <<"M232,48H160a40,40,0,0,0-32,16A40,40,0,0,0,96,48H24a8,8,0,0,0-8,8V200a8,8,0,0,0,8,8H96a24,24,0,0,1,24,24,8,8,0,0,0,16,0,24,24,0,0,1,24-24h72a8,8,0,0,0,8-8V56A8,8,0,0,0,232,48ZM96,192H32V64H96a24,24,0,0,1,24,24V200A39.81,39.81,0,0,0,96,192Zm128,0H160a39.81,39.81,0,0,0-24,8V88a24,24,0,0,1,24-24h64Z">>,
+        <<"stack">> =>
+            <<"M230.91,172A8,8,0,0,1,228,182.91l-96,56a8,8,0,0,1-8.06,0l-96-56A8,8,0,0,1,36,169.09l92,53.65,92-53.65A8,8,0,0,1,230.91,172ZM220,121.09l-92,53.65L36,121.09A8,8,0,0,0,28,134.91l96,56a8,8,0,0,0,8.06,0l96-56A8,8,0,1,0,220,121.09ZM24,80a8,8,0,0,1,4-6.91l96-56a8,8,0,0,1,8.06,0l96,56a8,8,0,0,1,0,13.82l-96,56a8,8,0,0,1-8.06,0l-96-56A8,8,0,0,1,24,80Zm23.88,0L128,126.74,208.12,80,128,33.26Z">>,
+        <<"crosshair">> =>
+            <<"M232,120h-8.34A96.14,96.14,0,0,0,136,32.34V24a8,8,0,0,0-16,0v8.34A96.14,96.14,0,0,0,32.34,120H24a8,8,0,0,0,0,16h8.34A96.14,96.14,0,0,0,120,223.66V232a8,8,0,0,0,16,0v-8.34A96.14,96.14,0,0,0,223.66,136H232a8,8,0,0,0,0-16Zm-96,87.6V200a8,8,0,0,0-16,0v7.6A80.15,80.15,0,0,1,48.4,136H56a8,8,0,0,0,0-16H48.4A80.15,80.15,0,0,1,120,48.4V56a8,8,0,0,0,16,0V48.4A80.15,80.15,0,0,1,207.6,120H200a8,8,0,0,0,0,16h7.6A80.15,80.15,0,0,1,136,207.6ZM128,88a40,40,0,1,0,40,40A40,40,0,0,0,128,88Zm0,64a24,24,0,1,1,24-24A24,24,0,0,1,128,152Z">>,
+        <<"magnifying-glass">> =>
+            <<"M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z">>,
+        <<"export">> =>
+            <<"M216,112v96a16,16,0,0,1-16,16H56a16,16,0,0,1-16-16V112A16,16,0,0,1,56,96H80a8,8,0,0,1,0,16H56v96H200V112H176a8,8,0,0,1,0-16h24A16,16,0,0,1,216,112ZM93.66,69.66,120,43.31V136a8,8,0,0,0,16,0V43.31l26.34,26.35a8,8,0,0,0,11.32-11.32l-40-40a8,8,0,0,0-11.32,0l-40,40A8,8,0,0,0,93.66,69.66Z">>,
+        <<"key">> =>
+            <<"M216.57,39.43A80,80,0,0,0,83.91,120.78L28.69,176A15.86,15.86,0,0,0,24,187.31V216a16,16,0,0,0,16,16H72a8,8,0,0,0,8-8V208H96a8,8,0,0,0,8-8V184h16a8,8,0,0,0,5.66-2.34l9.56-9.57A79.73,79.73,0,0,0,160,176h.1A80,80,0,0,0,216.57,39.43ZM224,98.1c-1.09,34.09-29.75,61.86-63.89,61.9H160a63.7,63.7,0,0,1-23.65-4.51,8,8,0,0,0-8.84,1.68L116.69,168H96a8,8,0,0,0-8,8v16H72a8,8,0,0,0-8,8v16H40V187.31l58.83-58.82a8,8,0,0,0,1.68-8.84A63.72,63.72,0,0,1,96,95.92c0-34.14,27.81-62.8,61.9-63.89A64,64,0,0,1,224,98.1ZM192,76a12,12,0,1,1-12-12A12,12,0,0,1,192,76Z">>,
+        <<"seal-check">> =>
+            <<"M225.86,102.82c-3.77-3.94-7.67-8-9.14-11.57-1.36-3.27-1.44-8.69-1.52-13.94-.15-9.76-.31-20.82-8-28.51s-18.75-7.85-28.51-8c-5.25-.08-10.67-.16-13.94-1.52-3.56-1.47-7.63-5.37-11.57-9.14C146.28,23.51,138.44,16,128,16s-18.27,7.51-25.18,14.14c-3.94,3.77-8,7.67-11.57,9.14C88,40.64,82.56,40.72,77.31,40.8c-9.76.15-20.82.31-28.51,8S41,67.55,40.8,77.31c-.08,5.25-.16,10.67-1.52,13.94-1.47,3.56-5.37,7.63-9.14,11.57C23.51,109.72,16,117.56,16,128s7.51,18.27,14.14,25.18c3.77,3.94,7.67,8,9.14,11.57,1.36,3.27,1.44,8.69,1.52,13.94.15,9.76.31,20.82,8,28.51s18.75,7.85,28.51,8c5.25.08,10.67.16,13.94,1.52,3.56,1.47,7.63,5.37,11.57,9.14C109.72,232.49,117.56,240,128,240s18.27-7.51,25.18-14.14c3.94-3.77,8-7.67,11.57-9.14,3.27-1.36,8.69-1.44,13.94-1.52,9.76-.15,20.82-.31,28.51-8s7.85-18.75,8-28.51c.08-5.25.16-10.67,1.52-13.94,1.47-3.56,5.37-7.63,9.14-11.57C232.49,146.28,240,138.44,240,128S232.49,109.73,225.86,102.82Zm-11.55,39.29c-4.79,5-9.75,10.17-12.38,16.52-2.52,6.1-2.63,13.07-2.73,19.82-.1,7-.21,14.33-3.32,17.43s-10.39,3.22-17.43,3.32c-6.75.1-13.72.21-19.82,2.73-6.35,2.63-11.52,7.59-16.52,12.38S132,224,128,224s-9.15-4.92-14.11-9.69-10.17-9.75-16.52-12.38c-6.1-2.52-13.07-2.63-19.82-2.73-7-.1-14.33-.21-17.43-3.32s-3.22-10.39-3.32-17.43c-.1-6.75-.21-13.72-2.73-19.82-2.63-6.35-7.59-11.52-12.38-16.52S32,132,32,128s4.92-9.15,9.69-14.11,9.75-10.17,12.38-16.52c2.52-6.1,2.63-13.07,2.73-19.82.1-7,.21-14.33,3.32-17.43S70.51,56.9,77.55,56.8c6.75-.1,13.72-.21,19.82-2.73,6.35-2.63,11.52-7.59,16.52-12.38S124,32,128,32s9.15,4.92,14.11,9.69,10.17,9.75,16.52,12.38c6.1,2.52,13.07,2.63,19.82,2.73,7,.1,14.33.21,17.43,3.32s3.22,10.39,3.32,17.43c.1,6.75.21,13.72,2.73,19.82,2.63,6.35,7.59,11.52,12.38,16.52S224,124,224,128,219.08,137.15,214.31,142.11ZM173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34Z">>,
+        <<"list-bullets">> =>
+            <<"M80,64a8,8,0,0,1,8-8H216a8,8,0,0,1,0,16H88A8,8,0,0,1,80,64Zm136,56H88a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Zm0,64H88a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16ZM44,52A12,12,0,1,0,56,64,12,12,0,0,0,44,52Zm0,64a12,12,0,1,0,12,12A12,12,0,0,0,44,116Zm0,64a12,12,0,1,0,12,12A12,12,0,0,0,44,180Z">>,
+        <<"database">> =>
+            <<"M128,24C74.17,24,32,48.6,32,80v96c0,31.4,42.17,56,96,56s96-24.6,96-56V80C224,48.6,181.83,24,128,24Zm80,104c0,9.62-7.88,19.43-21.61,26.92C170.93,163.35,150.19,168,128,168s-42.93-4.65-58.39-13.08C55.88,147.43,48,137.62,48,128V111.36c17.06,15,46.23,24.64,80,24.64s62.94-9.68,80-24.64ZM69.61,53.08C85.07,44.65,105.81,40,128,40s42.93,4.65,58.39,13.08C200.12,60.57,208,70.38,208,80s-7.88,19.43-21.61,26.92C170.93,115.35,150.19,120,128,120s-42.93-4.65-58.39-13.08C55.88,99.43,48,89.62,48,80S55.88,60.57,69.61,53.08ZM186.39,202.92C170.93,211.35,150.19,216,128,216s-42.93-4.65-58.39-13.08C55.88,195.43,48,185.62,48,176V159.36c17.06,15,46.23,24.64,80,24.64s62.94-9.68,80-24.64V176C208,185.62,200.12,195.43,186.39,202.92Z">>,
+        <<"chat-dots">> =>
+            <<"M116,128a12,12,0,1,1,12,12A12,12,0,0,1,116,128ZM84,140a12,12,0,1,0-12-12A12,12,0,0,0,84,140Zm88,0a12,12,0,1,0-12-12A12,12,0,0,0,172,140Zm60-76V192a16,16,0,0,1-16,16H83l-32.6,28.16-.09.07A15.89,15.89,0,0,1,40,240a16.13,16.13,0,0,1-6.8-1.52A15.85,15.85,0,0,1,24,224V64A16,16,0,0,1,40,48H216A16,16,0,0,1,232,64ZM40,224h0ZM216,64H40V224l34.77-30A8,8,0,0,1,80,192H216Z">>,
+        <<"puzzle-piece">> =>
+            <<"M220.27,158.54a8,8,0,0,0-7.7-.46,20,20,0,1,1,0-36.16A8,8,0,0,0,224,114.69V72a16,16,0,0,0-16-16H171.78a35.36,35.36,0,0,0,.22-4,36.11,36.11,0,0,0-11.36-26.24,36,36,0,0,0-60.55,23.62,36.56,36.56,0,0,0,.14,6.62H64A16,16,0,0,0,48,72v32.22a35.36,35.36,0,0,0-4-.22,36.12,36.12,0,0,0-26.24,11.36,35.7,35.7,0,0,0-9.69,27,36.08,36.08,0,0,0,33.31,33.6,35.68,35.68,0,0,0,6.62-.14V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V165.31A8,8,0,0,0,220.27,158.54ZM208,208H64V165.31a8,8,0,0,0-11.43-7.23,20,20,0,1,1,0-36.16A8,8,0,0,0,64,114.69V72h46.69a8,8,0,0,0,7.23-11.43,20,20,0,1,1,36.16,0A8,8,0,0,0,161.31,72H208v32.23a35.68,35.68,0,0,0-6.62-.14A36,36,0,0,0,204,176a35.36,35.36,0,0,0,4-.22Z">>,
+        <<"cooking-pot">> =>
+            <<"M88,48V16a8,8,0,0,1,16,0V48a8,8,0,0,1-16,0Zm40,8a8,8,0,0,0,8-8V16a8,8,0,0,0-16,0V48A8,8,0,0,0,128,56Zm32,0a8,8,0,0,0,8-8V16a8,8,0,0,0-16,0V48A8,8,0,0,0,160,56Zm92.8,46.4L224,124v60a32,32,0,0,1-32,32H64a32,32,0,0,1-32-32V124L3.2,102.4a8,8,0,0,1,9.6-12.8L32,104V80a8,8,0,0,1,8-8H216a8,8,0,0,1,8,8v24l19.2-14.4a8,8,0,0,1,9.6,12.8ZM208,88H48v96a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16Z">>
+    }.
+
+recipe_icon_name(Slug, Title) ->
+    Text =
+        iolist_to_binary([
+            hb_util:to_lower(hb_util:bin(Slug)),
+            <<" ">>,
+            hb_util:to_lower(hb_util:bin(Title))
+        ]),
+    case first_recipe_icon_match(recipe_icon_keywords(), Text) of
+        undefined -> <<"cooking-pot">>;
+        Icon -> Icon
+    end.
+
+first_recipe_icon_match([], _Text) ->
+    undefined;
+first_recipe_icon_match([{Keyword, Icon} | Rest], Text) ->
+    case binary:match(Text, Keyword) of
+        nomatch -> first_recipe_icon_match(Rest, Text);
+        _ -> Icon
+    end.
+
+recipe_icon_markup(Slug, Recipe) ->
+    Icon = recipe_icon_name(Slug, maps:get(<<"title">>, Recipe, Slug)),
+    Path = maps:get(Icon, recipe_icon_paths()),
+    [
+        <<"<div class=\"hb-docs-recipe-card-icon\" aria-hidden=\"true\">">>,
+        <<"<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" focusable=\"false\">">>,
+        <<"<path d=\"">>, Path, <<"\"></path></svg>">>,
+        <<"</div>">>
+    ].
+
 recipe_nav(DeviceID, Recipes) ->
     [
         [
-            <<"<a class=\"hb-docs-card\" href=\"">>,
+            <<"<a class=\"hb-docs-card hb-docs-recipe-card\" href=\"">>,
             esc(device_recipe_path(DeviceID, Name)),
-            <<"\"><strong>">>, esc(maps:get(<<"title">>, Recipe, Name)),
-            <<"</strong><span>">>, esc(card_summary(maps:get(<<"summary">>, Recipe, <<>>))),
-            <<"</span><small>">>, esc(hb_util:bin(maps:get(<<"runnable-block-count">>, Recipe, 0))),
-            <<" runnable blocks</small></a>">>
+            <<"\">">>,
+            <<"<div class=\"hb-docs-recipe-card-header\">">>,
+            recipe_icon_markup(Name, Recipe),
+            <<"<strong class=\"hb-docs-recipe-card-title\">">>,
+            esc(maps:get(<<"title">>, Recipe, Name)),
+            <<"</strong></div>">>,
+            <<"<div class=\"hb-docs-recipe-card-body\">">>,
+            <<"<span class=\"hb-docs-recipe-card-desc\">">>,
+            esc(recipe_card_summary(Recipe)),
+            <<"</span><div class=\"hb-docs-recipe-card-footer\">">>,
+            <<"<span class=\"hb-docs-recipe-card-cta\">Open &rarr;</span>">>,
+            recipe_card_meta(Recipe),
+            <<"</div></div></a>">>
         ]
     || {Name, Recipe} <- lists:sort(maps:to_list(Recipes))
     ].
@@ -2289,6 +2492,20 @@ render_spec_body(Spec) ->
                 [<<"<p>">>, esc(maps:get(<<"summary">>, Spec, <<>>)), <<"</p>">>]
         end
     ].
+
+%% @doc Strip leading "N. " numbering from spec section titles for nav display.
+spec_section_nav_label(Title) ->
+    case spec_section_nav_skip_digits(Title, 0) of
+        {Count, <<".", Rest/binary>>} when Count > 0 ->
+            trim(Rest);
+        _ ->
+            Title
+    end.
+
+spec_section_nav_skip_digits(<<C, Rest/binary>>, Count) when C >= $0, C =< $9 ->
+    spec_section_nav_skip_digits(Rest, Count + 1);
+spec_section_nav_skip_digits(Bin, Count) ->
+    {Count, Bin}.
 
 spec_sections(Spec) ->
     case maps:get(<<"spec-status">>, Spec, <<"missing">>) of
@@ -3213,6 +3430,7 @@ docs_mobile_nav_js() ->
       syncLayoutForViewport();
       setActiveNav(document.body.getAttribute('data-active-path') || window.location.pathname);
       document.querySelector('.mobile-nav-home')?.addEventListener('click', closeMobileNav);
+      document.querySelector('.site-header-home')?.addEventListener('click', closeMobileNav);
     }
   };
 })();
@@ -3543,10 +3761,60 @@ markdown_summary(Markdown) ->
     summary_from_lines(Lines).
 
 -define(CARD_SUMMARY_MAX, 120).
+-define(RECIPE_CARD_SUMMARY_MAX, 80).
 
 card_summary(Summary) ->
     Text = trim(hb_util:bin(Summary)),
     truncate_card_summary(first_sentence(Text), ?CARD_SUMMARY_MAX).
+
+recipe_card_summary(Recipe) ->
+    Text =
+        case maps:get(<<"tagline">>, Recipe, undefined) of
+            undefined ->
+                first_clause(trim(hb_util:bin(maps:get(<<"summary">>, Recipe, <<>>))));
+            Tagline ->
+                trim(hb_util:bin(Tagline))
+        end,
+    truncate_card_summary(Text, ?RECIPE_CARD_SUMMARY_MAX).
+
+recipe_card_meta(Recipe) ->
+    case maps:get(<<"runnable-block-count">>, Recipe, 0) of
+        0 ->
+            <<>>;
+        Count ->
+            [
+                <<"<small class=\"hb-docs-recipe-card-meta\">">>,
+                esc(hb_util:bin(Count)),
+                <<" runnable</small>">>
+            ]
+    end.
+
+first_clause(<<>>) ->
+    <<>>;
+first_clause(Text) ->
+    case earliest_clause_split(Text) of
+        undefined ->
+            first_sentence(Text);
+        Pos ->
+            binary:part(Text, 0, Pos)
+    end.
+
+earliest_clause_split(Text) ->
+    Splits = [
+        clause_split(Text, <<". ">>),
+        clause_split(Text, <<", ">>),
+        clause_split(Text, <<" and ">>)
+    ],
+    case [Pos || Pos <- Splits, Pos =/= undefined] of
+        [] -> undefined;
+        Positions -> lists:min(Positions)
+    end.
+
+clause_split(Text, Sep) ->
+    case binary:match(Text, Sep) of
+        {Pos, _} when Pos > 0 -> Pos;
+        _ -> undefined
+    end.
 
 first_sentence(<<>>) ->
     <<>>;
@@ -3839,6 +4107,7 @@ html_negotiation_test() ->
     ?assert(binary:match(Body, <<"/info/assets/site.css">>) =/= nomatch),
     ?assert(binary:match(Body, <<"/info/assets/prism-core.min.js">>) =/= nomatch),
     ?assert(binary:match(Body, <<"mobile-menu-toggle">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"site-header-home\" href=\"/info\">View All Node Info">>) =/= nomatch),
     ?assert(binary:match(Body, <<"mobile-nav-drawer">>) =/= nomatch),
     ?assert(binary:match(Body, <<"mobile-nav-search-input">>) =/= nomatch),
     ?assert(binary:match(Body, <<"HBDocsMobileNav">>) =/= nomatch),
@@ -3861,6 +4130,9 @@ spec_sections_test() ->
     ?assert(length(Sections) >= 8),
     ?assertEqual(<<"1-overview">>, element(1, hd(Sections))),
     ?assertEqual(<<"1. Overview">>, element(2, hd(Sections))),
+    ?assertEqual(<<"Overview">>, spec_section_nav_label(<<"1. Overview">>)),
+    ?assertEqual(<<"Concepts & terminology">>, spec_section_nav_label(<<"2. Concepts & terminology">>)),
+    ?assertEqual(<<"Appendix">>, spec_section_nav_label(<<"Appendix">>)),
     ?assert(lists:any(
         fun({Id, _Title}) -> Id =:= <<"4-resolved-keys-normative">> end,
         Sections
@@ -3997,7 +4269,9 @@ spec_section_route_test() ->
     Req = #{ <<"accept">> => <<"text/html">> },
     {true, {ok, HTML}} = maybe_info_request(Msgs, Req, #{}),
     Body = maps:get(<<"body">>, HTML),
-    ?assert(binary:match(Body, <<"Specification</p><h1>message@1.0 / 1. Overview">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"Specification</p><h1>message@1.0 / Overview">>) =/= nomatch),
+    ?assert(binary:match(Body, <<">Overview</a>">>) =/= nomatch),
+    ?assertEqual(nomatch, binary:match(Body, <<">1. Overview</a>">>)),
     ?assert(binary:match(Body, <<"data-active-path=\"/~message@1.0/info/spec/1-overview\"">>) =/= nomatch),
     ?assert(binary:match(Body, <<"<li class=\"active\"><a href=\"/~message@1.0/info/spec/1-overview\">">>) =/= nomatch),
     ?assert(binary:match(Body, <<"identity device">>) =/= nomatch),
@@ -4036,16 +4310,39 @@ card_summary_test() ->
     ?assertEqual(123, byte_size(Truncated)),
     ?assertEqual(<<"...">>, binary:part(Truncated, 120, 3)).
 
+recipe_card_summary_test() ->
+    Long =
+        <<"Use `~arweave@2.9` as the publishing boundary for signed ANS-104 data items "
+            "and signed L1 transactions. This workflow also shows extra detail.">>,
+    Short = recipe_card_summary(#{ <<"summary">> => Long }),
+    ?assertEqual(
+        <<"Use `~arweave@2.9` as the publishing boundary for signed ANS-104 data items">>,
+        Short
+    ),
+    ?assert(byte_size(Short) =< ?RECIPE_CARD_SUMMARY_MAX),
+    ?assertEqual(
+        <<"Custom tagline">>,
+        recipe_card_summary(#{
+            <<"summary">> => Long,
+            <<"tagline">> => <<"Custom tagline">>
+        })
+    ).
+
 recipe_card_layout_test() ->
     {ok, HTML} = device_info(?ARWEAVE_DEVICE, #{ <<"accept">> => <<"text/html">> }, #{}),
     Body = maps:get(<<"body">>, HTML),
     PostSigned = maps:get(<<"post-signed-data-to-arweave">>, maps:get(<<"recipes">>, device_info_data(?ARWEAVE_DEVICE, #{}))),
     FullSummary = maps:get(<<"summary">>, PostSigned),
-    CardSummary = card_summary(FullSummary),
+    CardSummary = recipe_card_summary(PostSigned),
     ?assert(byte_size(CardSummary) < byte_size(FullSummary)),
+    ?assert(byte_size(CardSummary) =< ?RECIPE_CARD_SUMMARY_MAX),
     ?assert(binary:match(Body, CardSummary) =/= nomatch),
     ?assertEqual(nomatch, binary:match(Body, <<"This workflow also shows the expected behavior">>)),
-    ?assert(binary:match(Body, <<"runnable blocks</small></a>">>) =/= nomatch).
+    ?assert(binary:match(Body, <<"hb-docs-recipe-card-header">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"hb-docs-recipe-card-title">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"hb-docs-recipe-card-desc">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"hb-docs-recipe-card-cta\">Open &rarr;</span>">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"runnable</small></div></div></a>">>) =/= nomatch).
 
 implementations_route_test() ->
     {ok, HTML} = device_info_route(
@@ -4098,6 +4395,25 @@ cookbook_device_contract_test() ->
     ?assert(maps:is_key(<<"device">>, Schema)),
     DeviceKey = maps:get(<<"device">>, Schema),
     ?assertEqual(<<"for">>, maps:get(<<"required-parameters">>, DeviceKey)).
+
+recipe_card_icons_test() ->
+    ?assertEqual(<<"package">>, recipe_icon_name(<<"inspect-and-reassemble-bundles">>, <<"Inspect And Reassemble Bundles">>)),
+    ?assertEqual(<<"upload">>, recipe_icon_name(<<"post-signed-data-to-arweave">>, <<"Post Signed Data">>)),
+    ?assertEqual(<<"export">>, recipe_icon_name(<<"build-a-message-and-serialize-it">>, <<"Build a message">>)),
+    {ok, HTML} = device_info_route(
+        ?ARWEAVE_DEVICE,
+        [<<"recipes">>],
+        #{ <<"accept">> => <<"text/html">> },
+        #{}
+    ),
+    Body = maps:get(<<"body">>, HTML),
+    ?assert(binary:match(Body, <<"hb-docs-recipe-card">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"hb-docs-recipe-card-header">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"hb-docs-recipe-card-icon">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"hb-docs-recipe-card-title">>) =/= nomatch),
+    PackagePath = maps:get(<<"package">>, recipe_icon_paths()),
+    ?assert(binary:match(Body, PackagePath) =/= nomatch),
+    ?assertEqual(6, length([1 || {Slug, _} <- maps:to_list(arweave_recipes()), binary:match(Body, Slug) =/= nomatch])).
 
 docs_asset_route_test() ->
     Msgs = [

@@ -10,6 +10,17 @@ You can start HyperBEAM with rebar3 as follows:
 	rebar3 shell
 ```
 
+For local docs work on port 8734, prefer the guarded wrapper so multiple
+terminals do not fight for the same port:
+
+```
+	./scripts/dev-server.sh start
+```
+
+`start` is a no-op if something is already listening on `HB_PORT` (default
+8734). Use `./scripts/dev-server.sh status`, `stop`, or `restart` as needed.
+Starting a second `rebar3 shell` on an occupied port fails with `eaddrinuse`.
+
 This will drop you into an Erlang shell with all of the necessary modules 
 loaded. Additionally, starting HyperBEAM this way will initialize its HTTP
 server, such that you can begin to send requests to it. There are a few helpful
