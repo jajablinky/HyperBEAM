@@ -1624,13 +1624,7 @@ node_sidebar(Devices) ->
             "<li><a href=\"/info/implementations\">Implementations</a></li>"
             "</ul></li>">>,
         <<"<li><p>Guides</p><ul>">>,
-        [
-            [
-                <<"<li><a href=\"">>, esc(maps:get(<<"href">>, Page, <<>>)),
-                <<"\">">>, esc(maps:get(<<"title">>, Page, <<>>)), <<"</a></li>">>
-            ]
-        || Page <- maps:get(<<"pages">>, Boilerplate, [])
-        ],
+        boilerplate_sidebar_rows(Boilerplate),
         <<"</ul></li>">>,
         <<"<li><p>Devices</p><ul>">>,
         [
@@ -1643,6 +1637,63 @@ node_sidebar(Devices) ->
         || Device <- Devices
         ],
         <<"</ul></li>">>
+    ].
+
+boilerplate_sidebar_rows(Index) ->
+    Pages = maps:get(<<"pages">>, Index, []),
+    [
+        <<"<li><a href=\"/info/boilerplate\">All guides</a></li>">>,
+        [
+            boilerplate_sidebar_section(Section, Pages)
+        || Section <- boilerplate_section_order()
+        ]
+    ].
+
+boilerplate_sidebar_section(<<"Overview">>, Pages) ->
+    case boilerplate_pages_for_section(<<"Overview">>, Pages) of
+        [] ->
+            [];
+        [Page | _Rest] ->
+            [
+                <<"<li><a href=\"">>, esc(maps:get(<<"href">>, Page, <<>>)),
+                <<"\">Overview</a></li>">>
+            ]
+    end;
+boilerplate_sidebar_section(Section, Pages) ->
+    case boilerplate_pages_for_section(Section, Pages) of
+        [] ->
+            [];
+        SectionPages ->
+            [
+                <<"<li><p>">>, esc(Section), <<"</p><ul>">>,
+                [
+                    [
+                        <<"<li><a href=\"">>, esc(maps:get(<<"href">>, Page, <<>>)),
+                        <<"\">">>, esc(maps:get(<<"title">>, Page, <<>>)), <<"</a></li>">>
+                    ]
+                || Page <- SectionPages
+                ],
+                <<"</ul></li>">>
+            ]
+    end.
+
+boilerplate_pages_for_section(Section, Pages) ->
+    [
+        Page
+    || Page <- Pages,
+       maps:get(<<"section">>, Page, <<>>) =:= Section
+    ].
+
+boilerplate_section_order() ->
+    [
+        <<"Overview">>,
+        <<"Introduction">>,
+        <<"Using These Docs">>,
+        <<"Devices">>,
+        <<"Device Forge">>,
+        <<"Recipes">>,
+        <<"Device Recipes">>,
+        <<"Reference">>
     ].
 
 node_sidebar_from_component(Devices) ->
@@ -2440,6 +2491,16 @@ node_info_contract_test() ->
     ?assert(length(maps:get(<<"pages">>, maps:get(<<"boilerplate">>, Data))) > 10),
     ?assertEqual(<<"cookbook@1.0">>, maps:get(<<"device">>, maps:get(<<"renderer">>, Data))),
     ?assertEqual(3, length(maps:get(<<"devices">>, Data))).
+
+node_sidebar_hierarchy_test() ->
+    {ok, HTML} = node_info(#{ <<"accept">> => <<"text/html">> }, #{}),
+    Body = maps:get(<<"body">>, HTML),
+    ?assert(binary:match(Body, <<"<li><p>Guides</p><ul>">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"<li><a href=\"/info/boilerplate\">All guides</a></li>">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"<li><a href=\"/info/boilerplate/index\">Overview</a></li>">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"<li><p>Introduction</p><ul>">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"<li><p>Device Forge</p><ul>">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"<li><p>Device Recipes</p><ul>">>) =/= nomatch).
 
 arweave_info_contract_test() ->
     Data = device_info_data(?ARWEAVE_DEVICE, #{}),
