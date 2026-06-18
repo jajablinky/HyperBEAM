@@ -1,0 +1,520 @@
+{
+  "sections": [
+    {
+      "id": "introduction",
+      "label": "Introduction",
+      "home": "/introduction/index.md",
+      "items": [
+        {
+          "title": "Overview",
+          "href": "/introduction/index.md",
+          "description": "Overview of this documentation section"
+        },
+        {
+          "title": "What is HyperBEAM?",
+          "href": "/introduction/what-is-hyperbeam.md",
+          "description": "What Is Hyperbeam"
+        },
+        {
+          "title": "What is AO-Core?",
+          "href": "/introduction/what-is-ao-core.md",
+          "description": "What Is Ao Core"
+        },
+        {
+          "title": "AO Devices",
+          "href": "/introduction/ao-devices.md",
+          "description": "Ao Devices"
+        },
+        {
+          "title": "Pathing in AO-Core",
+          "href": "/introduction/pathing-in-ao-core.md",
+          "description": "Pathing In Ao Core"
+        }
+      ]
+    },
+    {
+      "id": "getting-started",
+      "label": "Using These Docs",
+      "home": "/getting-started/index.md",
+      "items": [
+        {
+          "title": "Overview",
+          "href": "/getting-started/index.md",
+          "description": "How to read the local device examples in this corpus"
+        },
+        {
+          "title": "Reading The Examples",
+          "href": "/getting-started/example-style.md",
+          "description": "How hyperpaths, keys, and quoting work"
+        }
+      ]
+    },
+    {
+      "id": "devices",
+      "label": "Devices",
+      "home": "/devices/index.md",
+      "items": [
+        {
+          "title": "Overview",
+          "href": "/devices/index.md",
+          "description": "Inventory of core HyperBEAM edge devices by purpose"
+        },
+        {
+          "title": "Arweave And Data",
+          "href": "/devices/arweave-and-data/arweave-at-2-9.md",
+          "description": "Read, bundle, copy, and query Arweave data",
+          "children": [
+            {
+              "title": "~arweave@2.9",
+              "href": "/devices/arweave-and-data/arweave-at-2-9.md"
+            },
+            {
+              "title": "~bundler@1.0",
+              "href": "/devices/arweave-and-data/bundler-at-1-0.md"
+            },
+            {
+              "title": "~copycat@1.0",
+              "href": "/devices/arweave-and-data/copycat-at-1-0.md"
+            },
+            {
+              "title": "~match@1.0",
+              "href": "/devices/arweave-and-data/match-at-1-0.md"
+            },
+            {
+              "title": "~query@1.0",
+              "href": "/devices/arweave-and-data/query-at-1-0.md"
+            }
+          ]
+        },
+        {
+          "title": "Foundations",
+          "href": "/devices/foundations/b32-name-at-1-0.md",
+          "description": "Messages, meta, relay, naming, and debugging",
+          "children": [
+            {
+              "title": "~b32-name@1.0",
+              "href": "/devices/foundations/b32-name-at-1-0.md"
+            },
+            {
+              "title": "~hyperbuddy@1.0",
+              "href": "/devices/foundations/hyperbuddy-at-1-0.md"
+            },
+            {
+              "title": "~local-name@1.0",
+              "href": "/devices/foundations/local-name-at-1-0.md"
+            },
+            {
+              "title": "~message@1.0",
+              "href": "/devices/foundations/message-at-1-0.md"
+            },
+            {
+              "title": "~meta@1.0",
+              "href": "/devices/foundations/meta-at-1-0.md"
+            },
+            {
+              "title": "~name@1.0",
+              "href": "/devices/foundations/name-at-1-0.md"
+            },
+            {
+              "title": "~relay@1.0",
+              "href": "/devices/foundations/relay-at-1-0.md"
+            }
+          ]
+        },
+        {
+          "title": "Compute And Processes",
+          "href": "/devices/compute-and-processes/apply-at-1-0.md",
+          "description": "Processes, Lua, WASM, scheduling, and composition",
+          "children": [
+            {
+              "title": "~apply@1.0",
+              "href": "/devices/compute-and-processes/apply-at-1-0.md"
+            },
+            {
+              "title": "~cron@1.0",
+              "href": "/devices/compute-and-processes/cron-at-1-0.md"
+            },
+            {
+              "title": "~dedup@1.0",
+              "href": "/devices/compute-and-processes/dedup-at-1-0.md"
+            },
+            {
+              "title": "~delegated-compute@1.0",
+              "href": "/devices/compute-and-processes/delegated-compute-at-1-0.md"
+            },
+            {
+              "title": "~genesis-wasm@1.0",
+              "href": "/devices/compute-and-processes/genesis-wasm-at-1-0.md"
+            },
+            {
+              "title": "~lua@5.3a",
+              "href": "/devices/compute-and-processes/lua-at-5-3a.md"
+            },
+            {
+              "title": "~multipass@1.0",
+              "href": "/devices/compute-and-processes/multipass-at-1-0.md"
+            },
+            {
+              "title": "~node-process@1.0",
+              "href": "/devices/compute-and-processes/node-process-at-1-0.md"
+            },
+            {
+              "title": "~patch@1.0",
+              "href": "/devices/compute-and-processes/patch-at-1-0.md"
+            },
+            {
+              "title": "~push@1.0",
+              "href": "/devices/compute-and-processes/push-at-1-0.md"
+            },
+            {
+              "title": "~scheduler@1.0",
+              "href": "/devices/compute-and-processes/scheduler-at-1-0.md"
+            },
+            {
+              "title": "~stack@1.0",
+              "href": "/devices/compute-and-processes/stack-at-1-0.md"
+            },
+            {
+              "title": "~wasi@1.0",
+              "href": "/devices/compute-and-processes/wasi-at-1-0.md"
+            },
+            {
+              "title": "~wasm-64@1.0",
+              "href": "/devices/compute-and-processes/wasm-64-at-1-0.md"
+            }
+          ]
+        },
+        {
+          "title": "Codecs And Formats",
+          "href": "/devices/codecs-and-formats/ans104-at-1-0.md",
+          "description": "JSON, gzip, manifests, signatures, and codecs",
+          "children": [
+            {
+              "title": "~ans104@1.0",
+              "href": "/devices/codecs-and-formats/ans104-at-1-0.md"
+            },
+            {
+              "title": "~flat@1.0",
+              "href": "/devices/codecs-and-formats/flat-at-1-0.md"
+            },
+            {
+              "title": "~gzip@1.0",
+              "href": "/devices/codecs-and-formats/gzip-at-1-0.md"
+            },
+            {
+              "title": "~httpsig@1.0",
+              "href": "/devices/codecs-and-formats/httpsig-at-1-0.md"
+            },
+            {
+              "title": "~json@1.0",
+              "href": "/devices/codecs-and-formats/json-at-1-0.md"
+            },
+            {
+              "title": "~json-iface@1.0",
+              "href": "/devices/codecs-and-formats/json-iface-at-1-0.md"
+            },
+            {
+              "title": "~manifest@1.0",
+              "href": "/devices/codecs-and-formats/manifest-at-1-0.md"
+            },
+            {
+              "title": "~structured@1.0",
+              "href": "/devices/codecs-and-formats/structured-at-1-0.md"
+            },
+            {
+              "title": "~trie@1.0",
+              "href": "/devices/codecs-and-formats/trie-at-1-0.md"
+            },
+            {
+              "title": "~tx@1.0",
+              "href": "/devices/codecs-and-formats/tx-at-1-0.md"
+            }
+          ]
+        },
+        {
+          "title": "Node Operations",
+          "href": "/devices/node-operations/blacklist-at-1-0.md",
+          "description": "Routing, cache, profiles, and node policy",
+          "children": [
+            {
+              "title": "~blacklist@1.0",
+              "href": "/devices/node-operations/blacklist-at-1-0.md"
+            },
+            {
+              "title": "~cache@1.0",
+              "href": "/devices/node-operations/cache-at-1-0.md"
+            },
+            {
+              "title": "~cacheviz@1.0",
+              "href": "/devices/node-operations/cacheviz-at-1-0.md"
+            },
+            {
+              "title": "~location@1.0",
+              "href": "/devices/node-operations/location-at-1-0.md"
+            },
+            {
+              "title": "~profile@1.0",
+              "href": "/devices/node-operations/profile-at-1-0.md"
+            },
+            {
+              "title": "~rate-limit@1.0",
+              "href": "/devices/node-operations/rate-limit-at-1-0.md"
+            },
+            {
+              "title": "~router@1.0",
+              "href": "/devices/node-operations/router-at-1-0.md"
+            },
+            {
+              "title": "~whois@1.0",
+              "href": "/devices/node-operations/whois-at-1-0.md"
+            }
+          ]
+        },
+        {
+          "title": "Auth And Access",
+          "href": "/devices/auth-and-access/auth-hook-at-1-0.md",
+          "description": "Secrets, cookies, HTTP auth, and hooks",
+          "children": [
+            {
+              "title": "~auth-hook@1.0",
+              "href": "/devices/auth-and-access/auth-hook-at-1-0.md"
+            },
+            {
+              "title": "~cookie@1.0",
+              "href": "/devices/auth-and-access/cookie-at-1-0.md"
+            },
+            {
+              "title": "~http-auth@1.0",
+              "href": "/devices/auth-and-access/http-auth-at-1-0.md"
+            },
+            {
+              "title": "~secret@1.0",
+              "href": "/devices/auth-and-access/secret-at-1-0.md"
+            }
+          ]
+        },
+        {
+          "title": "Payment And Metering",
+          "href": "/devices/payment-and-metering/faff-at-1-0.md",
+          "description": "Payments, metering, and paid device access",
+          "children": [
+            {
+              "title": "~faff@1.0",
+              "href": "/devices/payment-and-metering/faff-at-1-0.md"
+            },
+            {
+              "title": "~metering@1.0",
+              "href": "/devices/payment-and-metering/metering-at-1-0.md"
+            },
+            {
+              "title": "~p4@1.0",
+              "href": "/devices/payment-and-metering/p4-at-1-0.md"
+            },
+            {
+              "title": "~simple-pay@1.0",
+              "href": "/devices/payment-and-metering/simple-pay-at-1-0.md"
+            }
+          ]
+        },
+        {
+          "title": "Support And Test",
+          "href": "/devices/support-and-test/recorder-at-1-0.md",
+          "description": "Recording, debug flights, and test devices",
+          "children": [
+            {
+              "title": "~recorder@1.0",
+              "href": "/devices/support-and-test/recorder-at-1-0.md"
+            },
+            {
+              "title": "~test-device@1.0",
+              "href": "/devices/support-and-test/test-device-at-1-0.md"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "forge",
+      "label": "Device Forge",
+      "home": "/forge/index.md",
+      "items": [
+        {
+          "title": "Overview",
+          "href": "/forge/index.md",
+          "description": "Overview of the Device Forge workflow"
+        },
+        {
+          "title": "Create A Device",
+          "href": "/forge/create-a-device.md",
+          "description": "Author a dev module and define device keys"
+        },
+        {
+          "title": "Install The Forge Template",
+          "href": "/forge/install-template.md",
+          "description": "Install the Forge template from HyperBEAM"
+        },
+        {
+          "title": "Operator Configuration",
+          "href": "/forge/operator-configuration.md",
+          "description": "Operator settings for loading, auth, and routes"
+        },
+        {
+          "title": "Publish And Load",
+          "href": "/forge/publish-and-load.md",
+          "description": "Sign, publish, and load devices on nodes"
+        },
+        {
+          "title": "Run Locally",
+          "href": "/forge/run-local.md",
+          "description": "Run a packaged device on a local node"
+        },
+        {
+          "title": "Device Forge Runbook",
+          "href": "/forge/runbook.md",
+          "description": "End to end Forge packaging and verification runbook"
+        },
+        {
+          "title": "Package, Verify, And Test",
+          "href": "/forge/test-package-verify.md",
+          "description": "Package, verify, and test before you publish"
+        },
+        {
+          "title": "Trusted Signers And Pins",
+          "href": "/forge/trusted-signers-and-pins.md",
+          "description": "Trusted signers, pins, and remote load policy"
+        }
+      ]
+    },
+    {
+      "id": "recipes",
+      "label": "Recipes",
+      "home": "/recipes/index.md",
+      "items": [
+        {
+          "title": "Overview",
+          "href": "/recipes/index.md",
+          "description": "Use case workflows that combine multiple devices"
+        },
+        {
+          "title": "Compute Over Arweave JSON With Lua",
+          "href": "/recipes/arweave-json-to-lua.md",
+          "description": "Copy Arweave JSON into a Lua compute path"
+        },
+        {
+          "title": "Bundle Data Locally",
+          "href": "/recipes/bundle-data-locally.md",
+          "description": "Submit signed data items through the bundler"
+        },
+        {
+          "title": "Check Node Readiness",
+          "href": "/recipes/check-node-readiness.md",
+          "description": "Smoke test node info before harder examples"
+        },
+        {
+          "title": "Create A Process-Shaped Message",
+          "href": "/recipes/create-a-process.md",
+          "description": "Build a process shaped message from devices"
+        },
+        {
+          "title": "Gzip Round Trip",
+          "href": "/recipes/gzip-round-trip.md",
+          "description": "Compress and decompress a message body locally"
+        },
+        {
+          "title": "Build A Message And Serialize It",
+          "href": "/recipes/message-to-json-pipe.md",
+          "description": "Construct a message and serialize it to JSON"
+        },
+        {
+          "title": "Paid Device Access",
+          "href": "/recipes/paid-device-access.md",
+          "description": "Wrap requests with pricing and ledger checks"
+        },
+        {
+          "title": "Patch Process State",
+          "href": "/recipes/patch-process-state.md",
+          "description": "Move values between paths before compute runs"
+        },
+        {
+          "title": "Query Local Cache",
+          "href": "/recipes/query-local-cache.md",
+          "description": "Search local cache indexes the node maintains"
+        },
+        {
+          "title": "Record A Debug Flight",
+          "href": "/recipes/recorder-debug-flight.md",
+          "description": "Capture a device request flow for debugging"
+        },
+        {
+          "title": "Relay, Fetch, And Transform",
+          "href": "/recipes/relay-fetch-transform.md",
+          "description": "Relay a URL, fetch data, then transform it"
+        },
+        {
+          "title": "Scheduled Lua Process Pattern",
+          "href": "/recipes/scheduled-lua-process.md",
+          "description": "Pattern for a scheduled Lua backed process"
+        },
+        {
+          "title": "Trusted Custom Device",
+          "href": "/recipes/trusted-custom-device.md",
+          "description": "Load a custom Forge device through node trust"
+        }
+      ]
+    },
+    {
+      "id": "device-recipes",
+      "label": "Device Recipes",
+      "home": "/device-recipes/index.md",
+      "items": [
+        {
+          "title": "Overview",
+          "href": "/device-recipes/index.md",
+          "description": "Overview of this documentation section"
+        },
+        {
+          "title": "Evaluation Against Existing Recipes",
+          "href": "/device-recipes/evaluation.md",
+          "description": "Evaluation"
+        },
+        {
+          "title": "Tests That Are Not User-Level Recipes",
+          "href": "/device-recipes/non-user-workflows.md",
+          "description": "Non User Workflows"
+        },
+        {
+          "title": "Device Recipe Format",
+          "href": "/device-recipes/recipe-format.md",
+          "description": "Recipe Format"
+        },
+        {
+          "title": "Test-Derived Recipe Matrix",
+          "href": "/device-recipes/test-matrix.md",
+          "description": "Test Matrix"
+        }
+      ]
+    },
+    {
+      "id": "reference",
+      "label": "Reference",
+      "home": "/reference/glossary.md",
+      "items": [
+        {
+          "title": "Device Inventory",
+          "href": "/reference/device-inventory.md",
+          "description": "Canonical list of documented edge root devices"
+        },
+        {
+          "title": "Local Checks",
+          "href": "/reference/example-validation.md",
+          "description": "Quick smoke tests for docs example commands"
+        },
+        {
+          "title": "Glossary",
+          "href": "/reference/glossary.md",
+          "description": "Terms used across devices, paths, and Forge"
+        }
+      ]
+    }
+  ]
+}

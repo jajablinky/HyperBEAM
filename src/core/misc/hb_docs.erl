@@ -10,7 +10,7 @@
 -define(ARWEAVE_DEVICE, <<"arweave@2.9">>).
 -define(MESSAGE_DEVICE, <<"message@1.0">>).
 -define(COOKBOOK_DEVICE, <<"cookbook@1.0">>).
--define(DEVICE_DOCS_ROOT, "/home/fn/Dev/device-docs").
+-define(PACKAGED_DEVICE_DOCS_ROOT, ["docs", "cookbook", "device-docs"]).
 
 %% @doc Return true when an inbound request addresses node-root `/info`.
 is_node_info_request([Base, Req], Opts) when is_map(Base), is_map(Req) ->
@@ -81,6 +81,16 @@ node_info_route([<<"implementations">>], Req, Opts) ->
     Data = node_info_data(Opts),
     Payload = node_component_index(<<"node-implementations-index">>, <<"implementations">>, Data),
     respond_html_or_json(node_implementations, Payload, Payload, Req);
+node_info_route([<<"boilerplate">>], Req, _Opts) ->
+    Payload = boilerplate_index(),
+    respond_html_or_json(node_boilerplate, Payload, Payload, Req);
+node_info_route([<<"boilerplate">> | Parts], Req, _Opts) ->
+    case boilerplate_page_payload(Parts) of
+        {ok, Payload} ->
+            respond_html_or_json(node_boilerplate_page, Payload, Payload, Req);
+        not_found ->
+            {ok, not_found_response()}
+    end;
 node_info_route([<<"concepts">>], Req, Opts) ->
     Data = node_info_data(Opts),
     Payload = #{
@@ -208,6 +218,7 @@ node_info_data(Opts) ->
         <<"message-spec">> => <<"/~message@1.0/info/spec">>,
         <<"message-recipes">> => <<"/~message@1.0/info/recipes">>,
         <<"cookbook-info">> => <<"/~cookbook@1.0/info">>,
+        <<"boilerplate-link">> => <<"/info/boilerplate">>,
         <<"devices">> => [
             #{
                 <<"name">> => <<"arweave">>,
@@ -234,12 +245,7 @@ node_info_data(Opts) ->
                 <<"recipes">> => <<"/~cookbook@1.0/info/recipes">>
             }
         ],
-        <<"boilerplate">> => #{
-            <<"hyperbeam">> => <<"/info/concepts/hyperbeam">>,
-            <<"ao-core">> => <<"/info/concepts/ao-core">>,
-            <<"devices">> => <<"/info/concepts/devices">>,
-            <<"messages">> => <<"/info/concepts/messages">>
-        },
+        <<"boilerplate">> => boilerplate_index(),
         <<"concepts">> => #{
             <<"hyperbeam">> =>
                 <<"A node runtime for AO-Core messages, devices, and "
@@ -458,6 +464,10 @@ html_response(node_recipes, Data) ->
     html_doc_response(render_node_component_html(<<"Recipes">>, Data));
 html_response(node_implementations, Data) ->
     html_doc_response(render_node_component_html(<<"Implementations">>, Data));
+html_response(node_boilerplate, Data) ->
+    html_doc_response(render_node_boilerplate_html(Data));
+html_response(node_boilerplate_page, Data) ->
+    html_doc_response(render_node_boilerplate_page_html(Data));
 html_response(node_concepts, Data) ->
     html_doc_response(render_node_concepts_html(Data));
 html_response(node_concept, Data) ->
@@ -1033,6 +1043,125 @@ recipe_section_metadata(undefined) ->
 recipe_section_metadata(SectionTitle) ->
     #{ <<"source-section">> => SectionTitle }.
 
+boilerplate_index() ->
+    Pages = [boilerplate_page_entry(Page) || Page <- boilerplate_pages()],
+    #{
+        <<"kind">> => <<"node-boilerplate-index">>,
+        <<"href">> => <<"/info/boilerplate">>,
+        <<"summary">> =>
+            <<"Reusable HyperBEAM, AO-Core, device, Forge, and reference docs "
+                "packaged from the cookbook source corpus.">>,
+        <<"source-root">> => hb_util:bin(device_docs_root()),
+        <<"ui-source">> => <<"priv/docs/cookbook/device-docs/site">>,
+        <<"build-script">> => <<"priv/docs/cookbook/device-docs/scripts/build-docs-site.mjs">>,
+        <<"pages">> => Pages
+    }.
+
+boilerplate_page_payload(Parts) ->
+    case boilerplate_relpath_from_parts(Parts) of
+        undefined ->
+            not_found;
+        RelPath ->
+            case lists:keyfind(RelPath, 2, boilerplate_pages()) of
+                false ->
+                    not_found;
+                Page ->
+                    Entry = boilerplate_page_entry(Page),
+                    Source = device_docs_path(RelPath),
+                    case file:read_file(binary_to_list(Source)) of
+                        {ok, Markdown} ->
+                            {ok, Entry#{
+                                <<"kind">> => <<"node-boilerplate-page">>,
+                                <<"markdown">> => Markdown,
+                                <<"markdown-bytes">> => byte_size(Markdown)
+                            }};
+                        {error, Reason} ->
+                            {ok, Entry#{
+                                <<"kind">> => <<"node-boilerplate-page">>,
+                                <<"markdown">> => <<>>,
+                                <<"error">> => hb_util:bin(io_lib:format("~tp", [Reason]))
+                            }}
+                    end
+            end
+    end.
+
+boilerplate_relpath_from_parts([]) ->
+    undefined;
+boilerplate_relpath_from_parts(Parts) ->
+    case lists:all(fun safe_route_part/1, Parts) of
+        true ->
+            iolist_to_binary([<<"docs/">>, lists:join(<<"/">>, Parts), <<".md">>]);
+        false ->
+            undefined
+    end.
+
+safe_route_part(Part) when is_binary(Part) ->
+    Part =/= <<>> andalso
+        binary:match(Part, <<"/">>) =:= nomatch andalso
+        binary:match(Part, <<"..">>) =:= nomatch;
+safe_route_part(_) ->
+    false.
+
+boilerplate_page_entry({Section, RelPath, FallbackTitle}) ->
+    Source = device_docs_path(RelPath),
+    Markdown =
+        case file:read_file(binary_to_list(Source)) of
+            {ok, Body} -> Body;
+            {error, _Reason} -> <<>>
+        end,
+    #{
+        <<"section">> => Section,
+        <<"title">> => markdown_title(Markdown, FallbackTitle),
+        <<"summary">> => markdown_summary(Markdown),
+        <<"href">> => boilerplate_href(RelPath),
+        <<"source">> => Source,
+        <<"source-relative">> => RelPath
+    }.
+
+boilerplate_href(<<"docs/", Rest/binary>>) ->
+    WithoutExt = strip_suffix(Rest, <<".md">>),
+    <<"/info/boilerplate/", WithoutExt/binary>>;
+boilerplate_href(RelPath) ->
+    WithoutExt = strip_suffix(RelPath, <<".md">>),
+    <<"/info/boilerplate/", WithoutExt/binary>>.
+
+strip_suffix(Bin, Suffix) ->
+    case ends_with(Bin, Suffix) of
+        true -> binary:part(Bin, 0, byte_size(Bin) - byte_size(Suffix));
+        false -> Bin
+    end.
+
+boilerplate_pages() ->
+    [
+        {<<"Overview">>, <<"docs/index.md">>, <<"HyperBEAM Docs">>},
+        {<<"Introduction">>, <<"docs/introduction/index.md">>, <<"Introduction">>},
+        {<<"Introduction">>, <<"docs/introduction/what-is-hyperbeam.md">>, <<"What Is HyperBEAM?">>},
+        {<<"Introduction">>, <<"docs/introduction/what-is-ao-core.md">>, <<"What Is AO-Core?">>},
+        {<<"Introduction">>, <<"docs/introduction/ao-devices.md">>, <<"AO Devices">>},
+        {<<"Introduction">>, <<"docs/introduction/pathing-in-ao-core.md">>, <<"Pathing In AO-Core">>},
+        {<<"Using These Docs">>, <<"docs/getting-started/index.md">>, <<"Using These Docs">>},
+        {<<"Using These Docs">>, <<"docs/getting-started/example-style.md">>, <<"Example Style">>},
+        {<<"Devices">>, <<"docs/devices/index.md">>, <<"Devices">>},
+        {<<"Device Forge">>, <<"docs/forge/index.md">>, <<"Device Forge">>},
+        {<<"Device Forge">>, <<"docs/forge/create-a-device.md">>, <<"Create A Device">>},
+        {<<"Device Forge">>, <<"docs/forge/install-template.md">>, <<"Install Template">>},
+        {<<"Device Forge">>, <<"docs/forge/operator-configuration.md">>, <<"Operator Configuration">>},
+        {<<"Device Forge">>, <<"docs/forge/publish-and-load.md">>, <<"Publish And Load">>},
+        {<<"Device Forge">>, <<"docs/forge/run-local.md">>, <<"Run Local">>},
+        {<<"Device Forge">>, <<"docs/forge/runbook.md">>, <<"Runbook">>},
+        {<<"Device Forge">>, <<"docs/forge/test-package-verify.md">>, <<"Test Package Verify">>},
+        {<<"Device Forge">>, <<"docs/forge/trusted-signers-and-pins.md">>, <<"Trusted Signers And Pins">>},
+        {<<"Recipes">>, <<"docs/recipes/index.md">>, <<"Recipes">>},
+        {<<"Device Recipes">>, <<"docs/device-recipes/index.md">>, <<"Device Recipes">>},
+        {<<"Device Recipes">>, <<"docs/device-recipes/recipe-format.md">>, <<"Recipe Format">>},
+        {<<"Device Recipes">>, <<"docs/device-recipes/test-matrix.md">>, <<"Test Matrix">>},
+        {<<"Device Recipes">>, <<"docs/device-recipes/evaluation.md">>, <<"Evaluation">>},
+        {<<"Device Recipes">>, <<"docs/device-recipes/non-user-workflows.md">>, <<"Non-User Workflows">>},
+        {<<"Reference">>, <<"docs/reference/glossary.md">>, <<"Glossary">>},
+        {<<"Reference">>, <<"docs/reference/example-validation.md">>, <<"Example Validation">>},
+        {<<"Reference">>, <<"docs/reference/device-inventory.md">>, <<"Device Inventory">>}
+    ].
+
 select_recipe_markdown(Markdown, undefined) ->
     Markdown;
 select_recipe_markdown(Markdown, SectionTitle) ->
@@ -1070,7 +1199,22 @@ take_section_body([], _Level, Acc) ->
     {lists:reverse(Acc), []}.
 
 device_docs_path(RelPath) ->
-    iolist_to_binary([?DEVICE_DOCS_ROOT, "/", RelPath]).
+    hb_util:bin(filename:join([device_docs_root(), binary_to_list(RelPath)])).
+
+device_docs_root() ->
+    case os:getenv("HB_DEVICE_DOCS_ROOT") of
+        false -> packaged_device_docs_root();
+        "" -> packaged_device_docs_root();
+        Root -> Root
+    end.
+
+packaged_device_docs_root() ->
+    case code:priv_dir(hb) of
+        {error, _Reason} ->
+            filename:join(["priv" | ?PACKAGED_DEVICE_DOCS_ROOT]);
+        PrivDir ->
+            filename:join([PrivDir | ?PACKAGED_DEVICE_DOCS_ROOT])
+    end.
 
 command_preview(Text) ->
     OneLine0 = binary:replace(Text, <<"\r">>, <<" ">>, [global]),
@@ -1095,6 +1239,7 @@ cookbook_key_order() ->
 render_node_html(Data) ->
     Devices = maps:get(<<"devices">>, Data),
     Renderer = maps:get(<<"renderer">>, Data, cookbook_renderer()),
+    Boilerplate = maps:get(<<"boilerplate">>, Data, boilerplate_index()),
     Content =
         [
             <<"<p class=\"eyebrow\">Node</p><h1>HyperBEAM Docs</h1><p>">>,
@@ -1102,6 +1247,9 @@ render_node_html(Data) ->
             <<"</p><p class=\"hb-docs-renderer-note\">Rendered by <a href=\"">>,
             esc(maps:get(<<"node-renderer">>, Renderer)),
             <<"\">~">>, esc(maps:get(<<"device">>, Renderer)), <<"</a>.</p>">>,
+            <<"<h2>Guides</h2><div class=\"hb-docs-card-grid\">">>,
+            boilerplate_card_rows(Boilerplate),
+            <<"</div>">>,
             <<"<h2>Devices</h2><div class=\"hb-docs-card-grid\">">>,
             [device_row(Device) || Device <- Devices],
             <<"</div><h2>Concepts</h2>">>,
@@ -1277,6 +1425,28 @@ render_node_component_html(Title, Data) ->
         ],
     docs_page_html(<<"HyperBEAM Node Index">>, node_sidebar_from_component(Devices), Content).
 
+render_node_boilerplate_html(Data) ->
+    Content =
+        [
+            <<"<p class=\"eyebrow\">Node</p><h1>Guides</h1><p>">>,
+            esc(maps:get(<<"summary">>, Data, <<>>)),
+            <<"</p><div class=\"hb-docs-card-grid\">">>,
+            boilerplate_card_rows(Data),
+            <<"</div>">>
+        ],
+    docs_page_html(<<"HyperBEAM Guides">>, node_sidebar([]), Content).
+
+render_node_boilerplate_page_html(Data) ->
+    Markdown = maps:get(<<"markdown">>, Data, <<>>),
+    Content =
+        [
+            <<"<p class=\"eyebrow\">Guide</p><h1>">>,
+            esc(maps:get(<<"title">>, Data, <<>>)),
+            <<"</h1>">>,
+            render_markdown(drop_first_h1(Markdown))
+        ],
+    docs_page_html(<<"HyperBEAM Guide">>, node_sidebar([]), Content).
+
 render_node_concepts_html(Data) ->
     Concepts = maps:get(<<"concepts">>, Data, #{}),
     Content =
@@ -1444,6 +1614,7 @@ docs_sidebar(Items) ->
     ].
 
 node_sidebar(Devices) ->
+    Boilerplate = boilerplate_index(),
     [
         <<"<li class=\"active\"><a href=\"/info\">Node Info</a></li>">>,
         <<"<li><p>Indexes</p><ul>"
@@ -1452,6 +1623,15 @@ node_sidebar(Devices) ->
             "<li><a href=\"/info/recipes\">Recipes</a></li>"
             "<li><a href=\"/info/implementations\">Implementations</a></li>"
             "</ul></li>">>,
+        <<"<li><p>Guides</p><ul>">>,
+        [
+            [
+                <<"<li><a href=\"">>, esc(maps:get(<<"href">>, Page, <<>>)),
+                <<"\">">>, esc(maps:get(<<"title">>, Page, <<>>)), <<"</a></li>">>
+            ]
+        || Page <- maps:get(<<"pages">>, Boilerplate, [])
+        ],
+        <<"</ul></li>">>,
         <<"<li><p>Devices</p><ul>">>,
         [
             [
@@ -1521,6 +1701,19 @@ device_row(Device) ->
         <<"@">>, esc(maps:get(<<"version">>, Device)),
         <<"</strong><span>">>, esc(maps:get(<<"schema">>, Device)),
         <<"</span><small>Open docs</small></a>">>
+    ].
+
+boilerplate_card_rows(Index) ->
+    [
+        [
+            <<"<a class=\"hb-docs-card\" href=\"">>,
+            esc(maps:get(<<"href">>, Page, <<>>)),
+            <<"\"><strong>">>, esc(maps:get(<<"title">>, Page, <<>>)),
+            <<"</strong><span>">>, esc(maps:get(<<"summary">>, Page, <<>>)),
+            <<"</span><small>">>, esc(maps:get(<<"section">>, Page, <<>>)),
+            <<"</small></a>">>
+        ]
+    || Page <- maps:get(<<"pages">>, Index, [])
     ].
 
 concept_rows(Concepts) ->
@@ -1810,9 +2003,9 @@ valid_asset_part(_) ->
     false.
 
 docs_asset_path([<<"prism-core.min.js">>]) ->
-    filename:join([?DEVICE_DOCS_ROOT, "node_modules", "prismjs", "components", "prism-core.min.js"]);
+    filename:join([device_docs_root(), "node_modules", "prismjs", "components", "prism-core.min.js"]);
 docs_asset_path(Parts) ->
-    filename:join([?DEVICE_DOCS_ROOT, "dist", "assets" | [binary_to_list(Part) || Part <- Parts]]).
+    filename:join([device_docs_root(), "dist", "assets" | [binary_to_list(Part) || Part <- Parts]]).
 
 docs_asset_body([<<"example-runner.js">>], Body) ->
     binary:replace(
@@ -2243,6 +2436,8 @@ node_info_contract_test() ->
     ?assertEqual(<<"node-info">>, maps:get(<<"kind">>, Data)),
     ?assertEqual(<<"/~arweave@2.9/info">>, maps:get(<<"arweave-info">>, Data)),
     ?assertEqual(<<"/~message@1.0/info">>, maps:get(<<"message-info">>, Data)),
+    ?assertEqual(<<"/info/boilerplate">>, maps:get(<<"boilerplate-link">>, Data)),
+    ?assert(length(maps:get(<<"pages">>, maps:get(<<"boilerplate">>, Data))) > 10),
     ?assertEqual(<<"cookbook@1.0">>, maps:get(<<"device">>, maps:get(<<"renderer">>, Data))),
     ?assertEqual(3, length(maps:get(<<"devices">>, Data))).
 
@@ -2277,6 +2472,8 @@ message_info_contract_test() ->
     ?assertNot(maps:is_key(<<"message-device-local-examples">>, Recipes)),
     Recipe = maps:get(<<"build-a-message-and-serialize-it">>, Recipes),
     ?assert(binary:match(maps:get(<<"first-command">>, Recipe), <<"~message@1.0">>) =/= nomatch),
+    ?assertEqual(nomatch, binary:match(maps:get(<<"source">>, Recipe), <<"/home/fn/Dev/device-docs">>)),
+    ?assert(binary:match(maps:get(<<"source">>, Recipe), <<"priv/docs/cookbook/device-docs">>) =/= nomatch),
     Typed = maps:get(<<"build-a-typed-message-and-read-fields">>, Recipes),
     ?assertEqual(<<"Build a typed message and read fields">>, maps:get(<<"source-section">>, Typed)),
     ?assertEqual(1, maps:get(<<"runnable-block-count">>, Typed)),
@@ -2284,6 +2481,11 @@ message_info_contract_test() ->
     ?assert(binary:match(TypedMarkdown, <<"Expected: `42` and `hello`.">>) =/= nomatch),
     ?assertEqual(nomatch, binary:match(TypedMarkdown, <<"## Action Keys">>)),
     ?assertEqual(nomatch, binary:match(TypedMarkdown, <<"## Source">>)).
+
+packaged_device_docs_root_test() ->
+    Root = hb_util:bin(packaged_device_docs_root()),
+    ?assert(binary:match(Root, <<"priv/docs/cookbook/device-docs">>) =/= nomatch),
+    ?assertEqual(nomatch, binary:match(Root, <<"/home/fn/Dev/device-docs">>)).
 
 html_negotiation_test() ->
     {ok, JSON} = device_info(?ARWEAVE_DEVICE, #{ <<"accept">> => <<"application/json">> }, #{}),
@@ -2375,6 +2577,28 @@ node_component_routes_test() ->
     {ok, Recipes} = node_info_route([<<"recipes">>], #{ <<"accept">> => <<"application/json">> }, #{}),
     ?assertEqual(<<"node-recipes-index">>, maps:get(<<"kind">>, Recipes)),
     ?assertEqual(3, length(maps:get(<<"devices">>, Recipes))).
+
+boilerplate_routes_test() ->
+    {ok, Index} = node_info_route([<<"boilerplate">>], #{ <<"accept">> => <<"application/json">> }, #{}),
+    ?assertEqual(<<"node-boilerplate-index">>, maps:get(<<"kind">>, Index)),
+    ?assert(length(maps:get(<<"pages">>, Index)) > 10),
+    ?assertEqual(nomatch, binary:match(maps:get(<<"source-root">>, Index), <<"/home/fn/Dev/device-docs">>)),
+    {ok, JSON} = node_info_route(
+        [<<"boilerplate">>, <<"introduction">>, <<"what-is-hyperbeam">>],
+        #{ <<"accept">> => <<"application/json">> },
+        #{}
+    ),
+    ?assertEqual(<<"node-boilerplate-page">>, maps:get(<<"kind">>, JSON)),
+    ?assertEqual(<<"docs/introduction/what-is-hyperbeam.md">>, maps:get(<<"source-relative">>, JSON)),
+    ?assert(maps:get(<<"markdown-bytes">>, JSON) > 0),
+    {ok, HTML} = node_info_route(
+        [<<"boilerplate">>, <<"introduction">>, <<"what-is-hyperbeam">>],
+        #{ <<"accept">> => <<"text/html">> },
+        #{}
+    ),
+    Body = maps:get(<<"body">>, HTML),
+    ?assert(binary:match(Body, <<"What is HyperBEAM">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"HyperBEAM is the primary">>) =/= nomatch).
 
 cookbook_device_contract_test() ->
     Data = device_info_data(?COOKBOOK_DEVICE, #{}),

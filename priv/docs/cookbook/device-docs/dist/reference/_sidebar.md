@@ -1,0 +1,4 @@
+- Reference
+  - [Device Inventory](/reference/device-inventory.md)
+  - [Local Checks](/reference/example-validation.md)
+  - [Glossary](/reference/glossary.md)
