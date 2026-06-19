@@ -3,8 +3,8 @@
 Install from a HyperBEAM checkout:
 
 ```bash
-cd /tmp/hyperbeam-edge-c6a16a26
-./install-template --local /tmp/hyperbeam-edge-c6a16a26
+cd /tmp/hyperbeam-source
+./install-template --local /tmp/hyperbeam-source
 ```
 
 Install from upstream edge:
@@ -16,7 +16,7 @@ Install from upstream edge:
 Pin to a commit for repeatable scaffolding:
 
 ```bash
-./install-template --commit c6a16a26dc4ddca55c57db2fd7be6b898d105bb3
+./install-template --commit <commit-or-tag>
 ```
 
 The installer writes a `rebar3 new device` template into your user template directory. New projects generated from it pin both the `hb` dependency and Forge plugin to the same HyperBEAM reference.

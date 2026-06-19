@@ -17,8 +17,8 @@ For each root such as `dev_echo_lens`, the Forge packages the root and helper mo
 From a HyperBEAM checkout:
 
 ```bash
-cd /tmp/hyperbeam-edge-c6a16a26
-./install-template --local /tmp/hyperbeam-edge-c6a16a26
+cd /tmp/hyperbeam-source
+./install-template --local /tmp/hyperbeam-source
 ```
 
 For a project pinned to upstream edge instead of a local checkout:

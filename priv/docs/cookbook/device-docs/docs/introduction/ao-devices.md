@@ -1,7 +1,5 @@
 # AO Devices
 
-> Merged from the HyperBEAM `edge` documentation at commit `c6a16a26dc4ddca55c57db2fd7be6b898d105bb3`. Local links have been adjusted for this combined docs corpus.
-
 
 In AO-Core and its implementation HyperBEAM, **Devices** are modular components responsible for processing and interpreting [Messages](/introduction/what-is-ao-core.md#core-concepts). They define the specific logic for how computations are performed, data is handled, or interactions occur within the AO ecosystem.
 

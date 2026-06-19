@@ -1,7 +1,5 @@
 # Pathing in AO-Core
 
-> Merged from the HyperBEAM `edge` documentation at commit `c6a16a26dc4ddca55c57db2fd7be6b898d105bb3`. Local links have been adjusted for this combined docs corpus.
-
 
 ## Overview
 

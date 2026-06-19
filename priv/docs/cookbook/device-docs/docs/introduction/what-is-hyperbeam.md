@@ -1,7 +1,5 @@
 # What is HyperBEAM?
 
-> Merged from the HyperBEAM `edge` documentation at commit `c6a16a26dc4ddca55c57db2fd7be6b898d105bb3`. Local links have been adjusted for this combined docs corpus.
-
 <video class="hb-page-figure" src="../assets/images/what-is-hyperbeam-fig.mp4" autoplay loop muted playsinline aria-label="HyperBEAM modular compute blocks"></video>
 
 HyperBEAM is the primary, production-ready implementation of the [AO-Core protocol](/introduction/what-is-ao-core.md), built on the robust Erlang/OTP framework. It serves as a decentralized operating system, powering the AO Computer—a scalable, trust-minimized, distributed supercomputer built on permanent storage. HyperBEAM provides the runtime environment and essential services to execute AO-Core computations across a network of distributed nodes.

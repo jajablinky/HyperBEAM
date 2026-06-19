@@ -1,7 +1,5 @@
 # What is AO-Core?
 
-> Merged from the HyperBEAM `edge` documentation at commit `c6a16a26dc4ddca55c57db2fd7be6b898d105bb3`. Local links have been adjusted for this combined docs corpus.
-
 
 AO-Core is the foundational protocol underpinning the [AO Computer](https://ao.arweave.net). It defines a minimal, generalized model for decentralized computation built around standard web technologies like HTTP. Think of it as a way to interpret the Arweave permaweb not just as static storage, but as a dynamic, programmable, and infinitely scalable computing environment.
 
