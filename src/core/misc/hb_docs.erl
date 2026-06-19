@@ -1276,11 +1276,10 @@ render_node_html(Data) ->
             <<"</p><p class=\"hb-docs-renderer-note\">Rendered by <a href=\"">>,
             esc(maps:get(<<"node-renderer">>, Renderer)),
             <<"\">~">>, esc(maps:get(<<"device">>, Renderer)), <<"</a>.</p>">>,
+            devices_section(Devices),
             <<"<h2>Guides</h2>">>,
-            boilerplate_structured_index(Boilerplate),
-            <<"<h2>Devices</h2><div class=\"hb-docs-card-grid\">">>,
-            [device_row(Device) || Device <- Devices],
-            <<"</div><h2>Concepts</h2>">>,
+            boilerplate_section_cards(Boilerplate, h3),
+            <<"<h2>Concepts</h2>">>,
             concept_rows(maps:get(<<"concepts">>, Data))
         ],
     docs_page_html(<<"HyperBEAM Node Info">>, <<"/info">>, node_sidebar(Devices, <<"/info">>), Content).
@@ -1510,7 +1509,7 @@ render_node_boilerplate_html(Data) ->
             <<"<p class=\"eyebrow\">Node</p><h1>Guides</h1><p>">>,
             esc(maps:get(<<"summary">>, Data, <<>>)),
             <<"</p>">>,
-            boilerplate_structured_index(Data)
+            boilerplate_section_cards(Data, h2)
         ],
     docs_page_html(
         <<"HyperBEAM Guides">>, <<"/info/boilerplate">>, node_sidebar([], <<"/info/boilerplate">>), Content
@@ -2034,40 +2033,108 @@ body.hb-docs-protocol .sidebar-viewing-back.is-active {
   color: var(--text) !important;
   text-decoration: none !important;
 }
-.hb-docs-card:hover { background: var(--bg-hover); }
-.hb-docs-card span,
-.hb-docs-card small { color: var(--text-secondary); }
-.hb-docs-guide-index {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
-  column-gap: 28px;
-  row-gap: 22px;
-  margin: 1rem 0 2rem;
-}
-.hb-docs-guide-group {
-  min-width: 0;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
-}
-.hb-docs-guide-group h3 {
-  margin: 0 0 8px;
-  font-size: 1rem;
-  line-height: 1.3;
-}
-.hb-docs-guide-group ul {
-  display: grid;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.hb-docs-guide-group li { margin: 0; }
-.hb-docs-guide-group a {
-  color: var(--text) !important;
-  font-weight: 500;
+.hb-docs-card:hover {
+  background: var(--bg-hover);
   text-decoration: none !important;
 }
-.hb-docs-guide-group a:hover { text-decoration: underline !important; }
+.hb-docs-card strong {
+  color: var(--text);
+  opacity: 1;
+}
+.hb-docs-card span {
+  flex: 1 1 auto;
+  margin-top: 4px;
+  color: var(--text-secondary);
+  opacity: 0.72;
+  line-height: 1.4;
+}
+.hb-docs-card small {
+  flex: 0 0 auto;
+  margin-top: auto;
+  padding-top: 10px;
+  color: var(--text-secondary);
+  font-size: var(--text-caption);
+}
+.hb-docs-recipe-card {
+  padding: 0;
+  border: none;
+  background: var(--bg-muted);
+  min-height: 160px;
+}
+.hb-docs-recipe-card:hover {
+  background: var(--bg-hover);
+}
+.hb-docs-recipe-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 12px 12px 4px;
+}
+.hb-docs-recipe-card-icon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+  color: var(--text-secondary);
+}
+.hb-docs-recipe-card-icon svg {
+  width: 15px;
+  height: 15px;
+}
+.hb-docs-recipe-card-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--text-ui);
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--text);
+  overflow: hidden;
+  max-height: 2.7em;
+  text-wrap: pretty;
+  text-wrap: balance;
+}
+.hb-docs-recipe-card-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  gap: 0;
+  padding: 0 12px 12px;
+  min-height: 0;
+}
+.hb-docs-recipe-card-desc {
+  flex: 1 1 auto;
+  margin-top: 0;
+  color: var(--text-secondary);
+  opacity: 0.72;
+  font-size: var(--text-caption);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.hb-docs-recipe-card-footer {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  flex: 0 0 auto;
+  margin-top: auto;
+  padding-top: 10px;
+}
+.hb-docs-recipe-card-cta {
+  font-size: var(--text-ui);
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+.hb-docs-recipe-card-meta {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+  font-size: var(--text-caption);
+  opacity: 0.65;
+}
 .hb-docs-section-index {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2199,28 +2266,252 @@ body.hb-docs-protocol .sidebar-viewing-back.is-active {
     grid-template-columns: 1fr;
   }
 }
+.mobile-nav-search {
+  margin: 0 0 18px;
+  padding: 0;
+}
+.mobile-nav-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 15px;
+  border: 1px solid var(--border);
+  border-radius: 25px;
+  background: var(--bg-muted);
+  cursor: text;
+  transition: border-color 100ms ease;
+}
+.mobile-nav-search-wrap:focus-within {
+  border-color: var(--border-strong);
+}
+.mobile-nav-search-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  color: var(--text-secondary);
+}
+.mobile-nav-search-icon svg {
+  width: 16px;
+  height: 16px;
+}
+.mobile-nav-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  min-height: 1.5em;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--text-nav);
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: 0;
+  outline: none;
+  box-shadow: none !important;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.mobile-nav-search-input::placeholder {
+  color: var(--text-secondary);
+}
+.mobile-nav-search-input:focus {
+  outline: none;
+  box-shadow: none !important;
+}
+.mobile-nav-search-input::-webkit-search-decoration,
+.mobile-nav-search-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+}
+body.hb-docs-protocol .mobile-nav-section.mobile-nav-flat-links .mobile-nav-link {
+  padding-left: var(--sidebar-link-pad-x);
+  color: var(--sidebar-link-color) !important;
+  opacity: 1;
+}
+body.hb-docs-protocol .mobile-nav-section.mobile-nav-flat-links .mobile-nav-link:hover {
+  color: var(--sidebar-link-hover-color) !important;
+  opacity: 1;
+}
+body.hb-docs-protocol .mobile-nav-section-panel > .mobile-nav-link:not(:first-child),
+body.hb-docs-protocol .mobile-nav-link-nested {
+  padding-left: calc(var(--sidebar-sub-indent) + var(--sidebar-link-pad-x));
+  color: var(--sidebar-nested-link-color) !important;
+  opacity: 0.72;
+}
+body.hb-docs-protocol .mobile-nav-section-panel > .mobile-nav-link:not(:first-child):hover,
+body.hb-docs-protocol .mobile-nav-link-nested:hover {
+  color: var(--sidebar-link-hover-color) !important;
+  opacity: 0.88;
+}
+body.hb-docs-protocol .mobile-nav-sublink {
+  color: var(--sidebar-nested-link-color) !important;
+  opacity: 0.58;
+}
+body.hb-docs-protocol .mobile-nav-sublink:hover {
+  color: var(--sidebar-link-hover-color) !important;
+  opacity: 0.72;
+}
+.mobile-nav-section.mobile-nav-filter-hidden,
+.mobile-nav-tab.mobile-nav-filter-hidden,
+.mobile-nav-home.mobile-nav-filter-hidden {
+  display: none !important;
+}
+.mobile-nav-link.mobile-nav-filter-hidden,
+.mobile-nav-sublink.mobile-nav-filter-hidden,
+.mobile-nav-sublinks.mobile-nav-filter-hidden {
+  display: none !important;
+}
 ">>.
 docs_sidebar(Items) ->
     [
-        <<"<aside class=\"sidebar\"><h1>HyperBEAM</h1><div class=\"sidebar-nav\"><ul>">>,
+        <<"<aside class=\"sidebar\" id=\"sidebar\"><h1>HyperBEAM</h1>"
+            "<div class=\"sidebar-nav\"><ul>">>,
         Items,
         <<"</ul></div></aside>">>
     ].
 
-node_sidebar(Devices) ->
+device_info_path(DeviceID) ->
+    <<"/~", DeviceID/binary, "/info">>.
+device_schema_path(DeviceID) ->
+    <<"/~", DeviceID/binary, "/info/schema">>.
+device_schema_key_path(DeviceID, Key) ->
+    <<"/~", DeviceID/binary, "/info/schema/", Key/binary>>.
+device_spec_path(DeviceID) ->
+    <<"/~", DeviceID/binary, "/info/spec">>.
+device_spec_section_path(DeviceID, SectionId) ->
+    <<"/~", DeviceID/binary, "/info/spec/", SectionId/binary>>.
+device_recipes_path(DeviceID) ->
+    <<"/~", DeviceID/binary, "/info/recipes">>.
+device_recipe_path(DeviceID, Slug) ->
+    <<"/~", DeviceID/binary, "/info/recipes/", Slug/binary>>.
+device_implementations_path(DeviceID) ->
+    <<"/~", DeviceID/binary, "/info/implementations">>.
+device_schema_param_path(DeviceID, Key, Param) ->
+    <<(device_schema_key_path(DeviceID, Key))/binary, "/", Param/binary>>.
+
+device_doc_links(DeviceID) ->
+    #{
+        <<"self">> => device_info_path(DeviceID),
+        <<"schema">> => device_schema_path(DeviceID),
+        <<"spec">> => device_spec_path(DeviceID),
+        <<"recipes">> => device_recipes_path(DeviceID),
+        <<"implementations">> => device_implementations_path(DeviceID)
+    }.
+
+device_doc_link_fields(DeviceID) ->
+    Links = device_doc_links(DeviceID),
+    #{
+        <<"links">> => Links,
+        <<"schema-link">> => maps:get(<<"schema">>, Links),
+        <<"specification-link">> => maps:get(<<"spec">>, Links),
+        <<"recipes-link">> => maps:get(<<"recipes">>, Links)
+    }.
+
+devices_index_path() ->
+    <<"/info/schema">>.
+
+active_path_match(ActivePath, Href) when is_binary(ActivePath), is_binary(Href) ->
+    ActivePath =:= Href.
+
+sidebar_li(ActivePath, Href, Content) ->
+    ActiveClass =
+        case active_path_match(ActivePath, Href) of
+            true -> <<" class=\"active\"">>;
+            false -> <<>>
+        end,
+    [
+        <<"<li">>, ActiveClass, <<"><a href=\"">>, esc(Href), <<"\">">>,
+        Content,
+        <<"</a></li>">>
+    ].
+
+node_sidebar_index_items() ->
+    [
+        {<<"/info/schema">>, <<"Schema">>},
+        {<<"/info/spec">>, <<"Spec">>},
+        {<<"/info/recipes">>, <<"Recipes">>},
+        {<<"/info/implementations">>, <<"Implementations">>}
+    ].
+
+sidebar_nav_section(ActivePath, SectionLabel, AllLabel, AllHref, ItemLis) ->
+    [
+        <<"<li><p>">>, SectionLabel, <<"</p><ul>">>,
+        sidebar_li(ActivePath, AllHref, AllLabel),
+        ItemLis,
+        <<"</ul></li>">>
+    ].
+
+phosphor_icon_path_svg(Icon) ->
+    Path = maps:get(Icon, recipe_icon_paths()),
+    [
+        <<"<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" focusable=\"false\">">>,
+        <<"<path d=\"">>, Path, <<"\"></path></svg>">>
+    ].
+
+sidebar_context_link_class(ActivePath, Href, Base) ->
+    case active_path_match(ActivePath, Href) of
+        true -> <<Base/binary, " is-active">>;
+        false -> Base
+    end.
+
+sidebar_viewing_icon_markup(Icon) ->
+    [
+        <<"<span class=\"sidebar-viewing-back-icon\" aria-hidden=\"true\">">>,
+        phosphor_icon_path_svg(Icon),
+        <<"</span>">>
+    ].
+
+sidebar_viewing_back_link(ActivePath, Href, Label, Icon) ->
+    [
+        <<"<a class=\"">>,
+        sidebar_context_link_class(ActivePath, Href, <<"sidebar-viewing-back">>),
+        <<"\" href=\"">>, esc(Href), <<"\">">>,
+        sidebar_viewing_icon_markup(Icon),
+        esc(Label),
+        <<"</a>">>
+    ].
+
+sidebar_node_context(ActivePath) ->
+    [
+        <<"<li class=\"sidebar-viewing-context\">">>,
+        <<"<p class=\"eyebrow\">You are viewing</p>">>,
+        <<"<a class=\"">>,
+        sidebar_context_link_class(ActivePath, <<"/info">>, <<"sidebar-viewing-device">>),
+        <<"\" href=\"/info\">Node</a>">>,
+        <<"</li>">>
+    ].
+
+sidebar_device_context(ActivePath, DeviceID) ->
+    DeviceHref = device_info_path(DeviceID),
+    DevicesHref = devices_index_path(),
+    [
+        <<"<li class=\"sidebar-viewing-context\">">>,
+        <<"<p class=\"eyebrow\">You are viewing</p>">>,
+        <<"<a class=\"">>,
+        sidebar_context_link_class(ActivePath, DeviceHref, <<"sidebar-viewing-device">>),
+        <<"\" href=\"">>, esc(DeviceHref), <<"\">">>,
+        esc(device_marked_id(DeviceID)),
+        <<"</a>">>,
+        sidebar_viewing_back_link(ActivePath, DevicesHref, <<"View All Devices">>, <<"stack">>),
+        sidebar_viewing_back_link(ActivePath, <<"/info">>, <<"View All Node Info">>, <<"database">>),
+        <<"</li>">>
+    ].
+
+node_sidebar(Devices, ActivePath) ->
     Boilerplate = boilerplate_index(),
     [
-        <<"<li class=\"active\"><a href=\"/info\">Node Info</a></li>">>,
-        <<"<li><p>Indexes</p><ul>"
-            "<li><a href=\"/info/schema\">Schema</a></li>"
-            "<li><a href=\"/info/spec\">Spec</a></li>"
-            "<li><a href=\"/info/recipes\">Recipes</a></li>"
-            "<li><a href=\"/info/implementations\">Implementations</a></li>"
-            "</ul></li>">>,
-        <<"<li><p>Guides</p><ul>">>,
-        boilerplate_sidebar_rows(Boilerplate),
-        <<"</ul></li>">>,
-        <<"<li><p>Devices</p><ul>">>,
+        sidebar_node_context(ActivePath),
+        node_sidebar_devices_section(Devices, ActivePath),
+        [
+            <<"<li class=\"sidebar-flat-links\"><p>Indexes</p><ul>">>,
+            [sidebar_li(ActivePath, Href, Label) || {Href, Label} <- node_sidebar_index_items()],
+            <<"</ul></li>">>
+        ],
         [
             <<"<li><p>Guides</p><ul>">>,
             [
@@ -2249,64 +2540,14 @@ node_sidebar_devices_section(Devices, ActivePath) ->
         <<"</ul></li>">>
     ].
 
-boilerplate_sidebar_rows(Index) ->
-    Pages = maps:get(<<"pages">>, Index, []),
-    [
-        <<"<li><a href=\"/info/boilerplate\">All guides</a></li>">>,
-        [
-            boilerplate_sidebar_section(Section, Pages)
-        || Section <- boilerplate_section_order()
-        ]
-    ].
-
-boilerplate_sidebar_section(<<"Overview">>, Pages) ->
-    case boilerplate_pages_for_section(<<"Overview">>, Pages) of
-        [] ->
-            [];
-        [Page | _Rest] ->
-            [
-                <<"<li><a href=\"">>, esc(maps:get(<<"href">>, Page, <<>>)),
-                <<"\">Overview</a></li>">>
-            ]
-    end;
-boilerplate_sidebar_section(Section, Pages) ->
-    case boilerplate_pages_for_section(Section, Pages) of
-        [] ->
-            [];
-        SectionPages ->
-            [
-                <<"<li><p>">>, esc(Section), <<"</p><ul>">>,
-                [
-                    [
-                        <<"<li><a href=\"">>, esc(maps:get(<<"href">>, Page, <<>>)),
-                        <<"\">">>, esc(maps:get(<<"title">>, Page, <<>>)), <<"</a></li>">>
-                    ]
-                || Page <- SectionPages
-                ],
-                <<"</ul></li>">>
-            ]
+index_section_li_open(ActivePath) ->
+    NodeIndexPaths = [Href || {Href, _} <- node_sidebar_index_items()],
+    case lists:member(ActivePath, NodeIndexPaths) of
+        true -> <<"<li class=\"sidebar-flat-links active\">">>;
+        false -> <<"<li class=\"sidebar-flat-links\">">>
     end.
 
-boilerplate_pages_for_section(Section, Pages) ->
-    [
-        Page
-    || Page <- Pages,
-       maps:get(<<"section">>, Page, <<>>) =:= Section
-    ].
-
-boilerplate_section_order() ->
-    [
-        <<"Overview">>,
-        <<"Introduction">>,
-        <<"Using These Docs">>,
-        <<"Devices">>,
-        <<"Device Forge">>,
-        <<"Recipes">>,
-        <<"Device Recipes">>,
-        <<"Reference">>
-    ].
-
-node_sidebar_from_component(Devices) ->
+node_sidebar_from_component(Devices, ActivePath) ->
     [
         sidebar_node_context(ActivePath),
         [
@@ -2508,37 +2749,35 @@ boilerplate_card_row(Page, _Section) ->
         <<"</span></a>">>
     ].
 
-boilerplate_structured_index(Index) ->
-    Pages = maps:get(<<"pages">>, Index, []),
+boilerplate_list_row(Page, _Section) ->
     [
-        <<"<nav class=\"hb-docs-guide-index\" aria-label=\"Guides\">">>,
-        [
-            boilerplate_guide_group(Section, Pages)
-        || Section <- boilerplate_section_order()
-        ],
-        <<"</nav>">>
+        <<"<p class=\"hb-docs-reference-item\"><a href=\"">>,
+        esc(maps:get(<<"href">>, Page, <<>>)),
+        <<"\"><strong>">>, esc(maps:get(<<"title">>, Page, <<>>)),
+        <<"</strong></a><br><span class=\"hb-docs-guide-list-desc\">">>,
+        esc(card_summary(maps:get(<<"summary">>, Page, <<>>))),
+        <<"</span></p>">>
     ].
 
-boilerplate_guide_group(Section, Pages) ->
-    case boilerplate_pages_for_section(Section, Pages) of
-        [] ->
-            [];
-        SectionPages ->
-            [
-                <<"<section class=\"hb-docs-guide-group\"><h3>">>, esc(Section),
-                <<"</h3><ul>">>,
-                [
-                    boilerplate_guide_link(Page)
-                || Page <- SectionPages
-                ],
-                <<"</ul></section>">>
-            ]
-    end.
-
-boilerplate_guide_link(Page) ->
+boilerplate_recipe_card_row(Page) ->
+    Title = maps:get(<<"title">>, Page, <<>>),
+    Slug = boilerplate_page_slug(Page),
+    Summary = card_summary(maps:get(<<"summary">>, Page, <<>>)),
     [
-        <<"<li><a href=\"">>, esc(maps:get(<<"href">>, Page, <<>>)),
-        <<"\">">>, esc(maps:get(<<"title">>, Page, <<>>)), <<"</a></li>">>
+        <<"<a class=\"hb-docs-card hb-docs-recipe-card\" href=\"">>,
+        esc(maps:get(<<"href">>, Page, <<>>)),
+        <<"\">">>,
+        <<"<div class=\"hb-docs-recipe-card-header\">">>,
+        recipe_icon_markup(Slug, #{<<"title">> => Title}),
+        <<"<strong class=\"hb-docs-recipe-card-title\">">>,
+        esc(Title),
+        <<"</strong></div>">>,
+        <<"<div class=\"hb-docs-recipe-card-body\">">>,
+        <<"<span class=\"hb-docs-recipe-card-desc\">">>,
+        esc(Summary),
+        <<"</span><div class=\"hb-docs-recipe-card-footer\">">>,
+        <<"<span class=\"hb-docs-recipe-card-cta\">Open &rarr;</span>">>,
+        <<"</div></div></a>">>
     ].
 
 boilerplate_page_slug(Page) ->
@@ -4481,19 +4720,6 @@ node_info_contract_test() ->
     ?assert(length(maps:get(<<"pages">>, maps:get(<<"boilerplate">>, Data))) > 10),
     ?assertEqual(<<"cookbook@1.0">>, maps:get(<<"device">>, maps:get(<<"renderer">>, Data))),
     ?assertEqual(3, length(maps:get(<<"devices">>, Data))).
-
-node_sidebar_hierarchy_test() ->
-    {ok, HTML} = node_info(#{ <<"accept">> => <<"text/html">> }, #{}),
-    Body = maps:get(<<"body">>, HTML),
-    ?assert(binary:match(Body, <<"<li><p>Guides</p><ul>">>) =/= nomatch),
-    ?assert(binary:match(Body, <<"<li><a href=\"/info/boilerplate\">All guides</a></li>">>) =/= nomatch),
-    ?assert(binary:match(Body, <<"<li><a href=\"/info/boilerplate/index\">Overview</a></li>">>) =/= nomatch),
-    ?assert(binary:match(Body, <<"<li><p>Introduction</p><ul>">>) =/= nomatch),
-    ?assert(binary:match(Body, <<"<li><p>Device Forge</p><ul>">>) =/= nomatch),
-    ?assert(binary:match(Body, <<"<li><p>Device Recipes</p><ul>">>) =/= nomatch),
-    ?assert(binary:match(Body, <<"hb-docs-guide-index">>) =/= nomatch),
-    ?assert(binary:match(Body, <<"<section class=\"hb-docs-guide-group\"><h3>Introduction</h3><ul>">>) =/= nomatch),
-    ?assertEqual(nomatch, binary:match(Body, <<"<h2>Guides</h2><div class=\"hb-docs-card-grid\">">>)).
 
 arweave_info_contract_test() ->
     Data = device_info_data(?ARWEAVE_DEVICE, #{}),
