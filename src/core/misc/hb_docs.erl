@@ -224,59 +224,56 @@ not_found_response() ->
         <<"body">> => <<"{\"error\":\"not found\"}">>
     }.
 
-node_info_data(Opts) ->
+prototype_node_device(DeviceID, Name, Version, Summary) ->
     #{
+        <<"name">> => Name,
+        <<"version">> => Version,
+        <<"href">> => device_info_path(DeviceID),
+        <<"summary">> => Summary,
+        <<"schema">> => device_schema_path(DeviceID),
+        <<"spec">> => device_spec_path(DeviceID),
+        <<"recipes">> => device_recipes_path(DeviceID)
+    }.
+
+node_device_shortcut_links() ->
+    #{
+        <<"arweave-info">> => device_info_path(?ARWEAVE_DEVICE),
+        <<"arweave-schema">> => device_schema_path(?ARWEAVE_DEVICE),
+        <<"arweave-spec">> => device_spec_path(?ARWEAVE_DEVICE),
+        <<"arweave-recipes">> => device_recipes_path(?ARWEAVE_DEVICE),
+        <<"message-info">> => device_info_path(?MESSAGE_DEVICE),
+        <<"message-schema">> => device_schema_path(?MESSAGE_DEVICE),
+        <<"message-spec">> => device_spec_path(?MESSAGE_DEVICE),
+        <<"message-recipes">> => device_recipes_path(?MESSAGE_DEVICE),
+        <<"cookbook-info">> => device_info_path(?COOKBOOK_DEVICE)
+    }.
+
+node_info_data(Opts) ->
+    maps:merge(node_device_shortcut_links(), #{
         <<"kind">> => <<"node-info">>,
         <<"node">> => node_href(Opts),
         <<"summary">> =>
             <<"HyperBEAM node documentation index generated from the node's "
                 "runtime device inventory prototype.">>,
         <<"renderer">> => cookbook_renderer(),
-        <<"arweave-info">> => <<"/~arweave@2.9/info">>,
-        <<"arweave-schema">> => <<"/~arweave@2.9/info/schema">>,
-        <<"arweave-spec">> => <<"/~arweave@2.9/info/spec">>,
-        <<"arweave-recipes">> => <<"/~arweave@2.9/info/recipes">>,
-        <<"message-info">> => <<"/~message@1.0/info">>,
-        <<"message-schema">> => <<"/~message@1.0/info/schema">>,
-        <<"message-spec">> => <<"/~message@1.0/info/spec">>,
-        <<"message-recipes">> => <<"/~message@1.0/info/recipes">>,
-        <<"cookbook-info">> => <<"/~cookbook@1.0/info">>,
         <<"boilerplate-link">> => <<"/info/boilerplate">>,
         <<"devices">> => [
-            #{
-                <<"name">> => <<"arweave">>,
-                <<"version">> => <<"2.9">>,
-                <<"href">> => <<"/~arweave@2.9/info">>,
-                <<"summary">> =>
-                    <<"Read Arweave network status, blocks, transactions, raw data, "
-                        "chunks, upload prices, anchors, and pending chunks.">>,
-                <<"schema">> => <<"/~arweave@2.9/info/schema">>,
-                <<"spec">> => <<"/~arweave@2.9/info/spec">>,
-                <<"recipes">> => <<"/~arweave@2.9/info/recipes">>
-            },
-            #{
-                <<"name">> => <<"message">>,
-                <<"version">> => <<"1.0">>,
-                <<"href">> => <<"/~message@1.0/info">>,
-                <<"summary">> =>
-                    <<"Construct messages from URL fields, read public keys, set or "
-                        "remove fields, calculate IDs, commit messages, and verify "
-                        "commitments.">>,
-                <<"schema">> => <<"/~message@1.0/info/schema">>,
-                <<"spec">> => <<"/~message@1.0/info/spec">>,
-                <<"recipes">> => <<"/~message@1.0/info/recipes">>
-            },
-            #{
-                <<"name">> => <<"cookbook">>,
-                <<"version">> => <<"1.0">>,
-                <<"href">> => <<"/~cookbook@1.0/info">>,
-                <<"summary">> =>
-                    <<"Prototype docs renderer device for node and device /info pages "
-                        "while the long-term HyperBuddy integration is in progress.">>,
-                <<"schema">> => <<"/~cookbook@1.0/info/schema">>,
-                <<"spec">> => <<"/~cookbook@1.0/info/spec">>,
-                <<"recipes">> => <<"/~cookbook@1.0/info/recipes">>
-            }
+            prototype_node_device(
+                ?ARWEAVE_DEVICE, <<"arweave">>, <<"2.9">>,
+                <<"Read Arweave network status, blocks, transactions, raw data, "
+                    "chunks, upload prices, anchors, and pending chunks.">>
+            ),
+            prototype_node_device(
+                ?MESSAGE_DEVICE, <<"message">>, <<"1.0">>,
+                <<"Construct messages from URL fields, read public keys, set or "
+                    "remove fields, calculate IDs, commit messages, and verify "
+                    "commitments.">>
+            ),
+            prototype_node_device(
+                ?COOKBOOK_DEVICE, <<"cookbook">>, <<"1.0">>,
+                <<"Prototype docs renderer device for node and device /info pages "
+                    "while the long-term HyperBuddy integration is in progress.">>
+            )
         ],
         <<"boilerplate">> => boilerplate_index(),
         <<"concepts">> => #{
@@ -293,10 +290,10 @@ node_info_data(Opts) ->
                 <<"Typed key/value structures that carry data, commitments, "
                     "device names, and execution history.">>
         }
-    }.
+    }).
 
 device_info_data(?ARWEAVE_DEVICE, Opts) ->
-    #{
+    maps:merge(device_doc_link_fields(?ARWEAVE_DEVICE), #{
         <<"kind">> => <<"device-info">>,
         <<"device">> => #{
             <<"name">> => <<"arweave">>,
@@ -312,16 +309,6 @@ device_info_data(?ARWEAVE_DEVICE, Opts) ->
                 "chunks, upload prices, anchors, and pending chunks through "
                 "the node's configured Arweave route.">>,
         <<"renderer">> => cookbook_renderer(),
-        <<"links">> => #{
-            <<"self">> => <<"/~arweave@2.9/info">>,
-            <<"schema">> => <<"/~arweave@2.9/info/schema">>,
-            <<"spec">> => <<"/~arweave@2.9/info/spec">>,
-            <<"recipes">> => <<"/~arweave@2.9/info/recipes">>,
-            <<"implementations">> => <<"/~arweave@2.9/info/implementations">>
-        },
-        <<"schema-link">> => <<"/~arweave@2.9/info/schema">>,
-        <<"specification-link">> => <<"/~arweave@2.9/info/spec">>,
-        <<"recipes-link">> => <<"/~arweave@2.9/info/recipes">>,
         <<"keys">> => arweave_key_summaries(),
         <<"schema">> => arweave_schema(Opts),
         <<"schema-order">> => arweave_key_order(),
@@ -343,9 +330,9 @@ device_info_data(?ARWEAVE_DEVICE, Opts) ->
             <<"parameter-docs">> => <<"prototype-core-keys">>
         },
         <<"spec-status">> => <<"missing">>
-    };
+    });
 device_info_data(?MESSAGE_DEVICE, Opts) ->
-    #{
+    maps:merge(device_doc_link_fields(?MESSAGE_DEVICE), #{
         <<"kind">> => <<"device-info">>,
         <<"device">> => #{
             <<"name">> => <<"message">>,
@@ -361,16 +348,6 @@ device_info_data(?MESSAGE_DEVICE, Opts) ->
                 "remove fields, calculate IDs, commit messages, and verify "
                 "commitments.">>,
         <<"renderer">> => cookbook_renderer(),
-        <<"links">> => #{
-            <<"self">> => <<"/~message@1.0/info">>,
-            <<"schema">> => <<"/~message@1.0/info/schema">>,
-            <<"spec">> => <<"/~message@1.0/info/spec">>,
-            <<"recipes">> => <<"/~message@1.0/info/recipes">>,
-            <<"implementations">> => <<"/~message@1.0/info/implementations">>
-        },
-        <<"schema-link">> => <<"/~message@1.0/info/schema">>,
-        <<"specification-link">> => <<"/~message@1.0/info/spec">>,
-        <<"recipes-link">> => <<"/~message@1.0/info/recipes">>,
         <<"keys">> => message_key_summaries(),
         <<"schema">> => message_schema(Opts),
         <<"schema-order">> => message_key_order(),
@@ -392,9 +369,9 @@ device_info_data(?MESSAGE_DEVICE, Opts) ->
             <<"traceability">> => <<"docs/device-recipes/modules/dev-message.md">>
         },
         <<"spec-status">> => maps:get(<<"spec-status">>, device_spec_status(?MESSAGE_DEVICE))
-    };
+    });
 device_info_data(?COOKBOOK_DEVICE, Opts) ->
-    #{
+    maps:merge(device_doc_link_fields(?COOKBOOK_DEVICE), #{
         <<"kind">> => <<"device-info">>,
         <<"device">> => #{
             <<"name">> => <<"cookbook">>,
@@ -410,16 +387,6 @@ device_info_data(?COOKBOOK_DEVICE, Opts) ->
                 "for node and device /info pages while the long-term HyperBuddy "
                 "integration remains a separate decision.">>,
         <<"renderer">> => cookbook_renderer(),
-        <<"links">> => #{
-            <<"self">> => <<"/~cookbook@1.0/info">>,
-            <<"schema">> => <<"/~cookbook@1.0/info/schema">>,
-            <<"spec">> => <<"/~cookbook@1.0/info/spec">>,
-            <<"recipes">> => <<"/~cookbook@1.0/info/recipes">>,
-            <<"implementations">> => <<"/~cookbook@1.0/info/implementations">>
-        },
-        <<"schema-link">> => <<"/~cookbook@1.0/info/schema">>,
-        <<"specification-link">> => <<"/~cookbook@1.0/info/spec">>,
-        <<"recipes-link">> => <<"/~cookbook@1.0/info/recipes">>,
         <<"keys">> => cookbook_key_summaries(),
         <<"schema">> => cookbook_schema(Opts),
         <<"schema-order">> => cookbook_key_order(),
@@ -441,7 +408,7 @@ device_info_data(?COOKBOOK_DEVICE, Opts) ->
             <<"renderer">> => <<"cookbook@1.0">>
         },
         <<"spec-status">> => maps:get(<<"spec-status">>, device_spec_status(?COOKBOOK_DEVICE))
-    };
+    });
 device_info_data(Device, _Opts) ->
     #{
         <<"kind">> => <<"device-info">>,
@@ -539,9 +506,7 @@ node_component_index(Kind, LinkKey, Data) ->
         <<"devices">> =>
             [
                 #{
-                    <<"device">> =>
-                        <<(maps:get(<<"name">>, Device))/binary, "@",
-                            (maps:get(<<"version">>, Device))/binary>>,
+                    <<"device">> => device_card_label(Device),
                     <<"href">> => maps:get(LinkKey, Device, maps:get(<<"href">>, Device, <<>>))
                 }
             || Device <- Devices
@@ -2426,6 +2391,27 @@ device_recipe_path(DeviceID, Slug) ->
     <<"/~", DeviceID/binary, "/info/recipes/", Slug/binary>>.
 device_implementations_path(DeviceID) ->
     <<"/~", DeviceID/binary, "/info/implementations">>.
+device_schema_param_path(DeviceID, Key, Param) ->
+    <<(device_schema_key_path(DeviceID, Key))/binary, "/", Param/binary>>.
+
+device_doc_links(DeviceID) ->
+    #{
+        <<"self">> => device_info_path(DeviceID),
+        <<"schema">> => device_schema_path(DeviceID),
+        <<"spec">> => device_spec_path(DeviceID),
+        <<"recipes">> => device_recipes_path(DeviceID),
+        <<"implementations">> => device_implementations_path(DeviceID)
+    }.
+
+device_doc_link_fields(DeviceID) ->
+    Links = device_doc_links(DeviceID),
+    #{
+        <<"links">> => Links,
+        <<"schema-link">> => maps:get(<<"schema">>, Links),
+        <<"specification-link">> => maps:get(<<"spec">>, Links),
+        <<"recipes-link">> => maps:get(<<"recipes">>, Links)
+    }.
+
 devices_index_path() ->
     <<"/info/schema">>.
 
@@ -2444,6 +2430,29 @@ sidebar_li(ActivePath, Href, Content) ->
         <<"</a></li>">>
     ].
 
+node_sidebar_index_items() ->
+    [
+        {<<"/info/schema">>, <<"Schema">>},
+        {<<"/info/spec">>, <<"Spec">>},
+        {<<"/info/recipes">>, <<"Recipes">>},
+        {<<"/info/implementations">>, <<"Implementations">>}
+    ].
+
+sidebar_nav_section(ActivePath, SectionLabel, AllLabel, AllHref, ItemLis) ->
+    [
+        <<"<li><p>">>, SectionLabel, <<"</p><ul>">>,
+        sidebar_li(ActivePath, AllHref, AllLabel),
+        ItemLis,
+        <<"</ul></li>">>
+    ].
+
+phosphor_icon_path_svg(Icon) ->
+    Path = maps:get(Icon, recipe_icon_paths()),
+    [
+        <<"<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" focusable=\"false\">">>,
+        <<"<path d=\"">>, Path, <<"\"></path></svg>">>
+    ].
+
 sidebar_context_link_class(ActivePath, Href, Base) ->
     case active_path_match(ActivePath, Href) of
         true -> <<Base/binary, " is-active">>;
@@ -2451,11 +2460,10 @@ sidebar_context_link_class(ActivePath, Href, Base) ->
     end.
 
 sidebar_viewing_icon_markup(Icon) ->
-    Path = maps:get(Icon, recipe_icon_paths()),
     [
         <<"<span class=\"sidebar-viewing-back-icon\" aria-hidden=\"true\">">>,
-        <<"<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" focusable=\"false\">">>,
-        <<"<path d=\"">>, Path, <<"\"></path></svg></span>">>
+        phosphor_icon_path_svg(Icon),
+        <<"</span>">>
     ].
 
 sidebar_viewing_back_link(ActivePath, Href, Label, Icon) ->
@@ -2486,7 +2494,9 @@ sidebar_device_context(ActivePath, DeviceID) ->
         <<"<p class=\"eyebrow\">You are viewing</p>">>,
         <<"<a class=\"">>,
         sidebar_context_link_class(ActivePath, DeviceHref, <<"sidebar-viewing-device">>),
-        <<"\" href=\"">>, esc(DeviceHref), <<"\">~">>, esc(DeviceID), <<"</a>">>,
+        <<"\" href=\"">>, esc(DeviceHref), <<"\">">>,
+        esc(device_marked_id(DeviceID)),
+        <<"</a>">>,
         sidebar_viewing_back_link(ActivePath, DevicesHref, <<"View All Devices">>, <<"stack">>),
         sidebar_viewing_back_link(ActivePath, <<"/info">>, <<"View All Node Info">>, <<"database">>),
         <<"</li>">>
@@ -2499,10 +2509,7 @@ node_sidebar(Devices, ActivePath) ->
         node_sidebar_devices_section(Devices, ActivePath),
         [
             <<"<li class=\"sidebar-flat-links\"><p>Indexes</p><ul>">>,
-            sidebar_li(ActivePath, <<"/info/schema">>, <<"Schema">>),
-            sidebar_li(ActivePath, <<"/info/spec">>, <<"Spec">>),
-            sidebar_li(ActivePath, <<"/info/recipes">>, <<"Recipes">>),
-            sidebar_li(ActivePath, <<"/info/implementations">>, <<"Implementations">>),
+            [sidebar_li(ActivePath, Href, Label) || {Href, Label} <- node_sidebar_index_items()],
             <<"</ul></li>">>
         ],
         [
@@ -2526,7 +2533,7 @@ node_sidebar_devices_section(Devices, ActivePath) ->
             sidebar_li(
                 ActivePath,
                 maps:get(<<"href">>, Device),
-                [<<"~">>, esc(maps:get(<<"name">>, Device)), <<"@">>, esc(maps:get(<<"version">>, Device, <<>>))]
+                esc(device_marked_id(device_card_label(Device)))
             )
         || Device <- Devices
         ],
@@ -2534,12 +2541,10 @@ node_sidebar_devices_section(Devices, ActivePath) ->
     ].
 
 index_section_li_open(ActivePath) ->
-    case ActivePath of
-        <<"/info/schema">> -> <<"<li class=\"sidebar-flat-links active\">">>;
-        <<"/info/spec">> -> <<"<li class=\"sidebar-flat-links active\">">>;
-        <<"/info/recipes">> -> <<"<li class=\"sidebar-flat-links active\">">>;
-        <<"/info/implementations">> -> <<"<li class=\"sidebar-flat-links active\">">>;
-        _ -> <<"<li class=\"sidebar-flat-links\">">>
+    NodeIndexPaths = [Href || {Href, _} <- node_sidebar_index_items()],
+    case lists:member(ActivePath, NodeIndexPaths) of
+        true -> <<"<li class=\"sidebar-flat-links active\">">>;
+        false -> <<"<li class=\"sidebar-flat-links\">">>
     end.
 
 node_sidebar_from_component(Devices, ActivePath) ->
@@ -2552,7 +2557,7 @@ node_sidebar_from_component(Devices, ActivePath) ->
                 sidebar_li(
                     ActivePath,
                     maps:get(<<"href">>, Device, <<>>),
-                    [<<"~">>, esc(maps:get(<<"device">>, Device, <<>>))]
+                    esc(device_marked_id(maps:get(<<"device">>, Device, <<>>)))
                 )
             || Device <- Devices
             ],
@@ -2569,18 +2574,12 @@ device_sidebar(Data, ActivePath) ->
     Recipes = maps:get(<<"recipes">>, Data, #{}),
     [
         sidebar_device_context(ActivePath, DeviceID),
-        [
-            <<"<li><p>Schema</p><ul>">>,
-            sidebar_li(ActivePath, device_schema_path(DeviceID), <<"All keys">>),
-            [
-                sidebar_li(ActivePath, device_schema_key_path(DeviceID, Key), esc(Key))
-            || Key <- SchemaOrder
-            ],
-            <<"</ul></li>">>
-        ],
-        [
-            <<"<li><p>Spec</p><ul>">>,
-            sidebar_li(ActivePath, device_spec_path(DeviceID), <<"All spec">>),
+        sidebar_nav_section(
+            ActivePath, <<"Schema">>, <<"All keys">>, device_schema_path(DeviceID),
+            [sidebar_li(ActivePath, device_schema_key_path(DeviceID, Key), esc(Key)) || Key <- SchemaOrder]
+        ),
+        sidebar_nav_section(
+            ActivePath, <<"Spec">>, <<"All spec">>, device_spec_path(DeviceID),
             [
                 sidebar_li(
                     ActivePath,
@@ -2588,12 +2587,10 @@ device_sidebar(Data, ActivePath) ->
                     esc(spec_section_nav_label(Title))
                 )
             || {SectionId, Title} <- SpecSections
-            ],
-            <<"</ul></li>">>
-        ],
-        [
-            <<"<li><p>Recipes</p><ul>">>,
-            sidebar_li(ActivePath, device_recipes_path(DeviceID), <<"All recipes">>),
+            ]
+        ),
+        sidebar_nav_section(
+            ActivePath, <<"Recipes">>, <<"All recipes">>, device_recipes_path(DeviceID),
             [
                 sidebar_li(
                     ActivePath,
@@ -2601,9 +2598,8 @@ device_sidebar(Data, ActivePath) ->
                     esc(maps:get(<<"title">>, Recipe, Slug))
                 )
             || {Slug, Recipe} <- lists:sort(maps:to_list(Recipes))
-            ],
-            <<"</ul></li>">>
-        ]
+            ]
+        )
     ].
 
 device_row(Device) ->
@@ -2664,19 +2660,28 @@ device_card_summary_text(Device) ->
     maps:get(<<"summary">>, Device,
         maps:get(<<"schema">>, Device, maps:get(<<"href">>, Device, <<>>))).
 
-device_display_title(<<"arweave">>) -> <<"Arweave">>;
-device_display_title(<<"message">>) -> <<"Message">>;
-device_display_title(<<"cookbook">>) -> <<"Cookbook">>;
+device_display_names() ->
+    #{
+        <<"arweave">> => <<"Arweave">>,
+        <<"message">> => <<"Message">>,
+        <<"cookbook">> => <<"Cookbook">>
+    }.
+
 device_display_title(Id) when is_binary(Id) ->
-    case binary:split(Id, <<"@">>) of
-        [Name, _Version] -> device_display_title(Name);
-        _ ->
-            case Id of
-                <<C, Rest/binary>> ->
-                    <<(string:uppercase(<<C>>))/binary, Rest/binary>>;
+    case maps:get(Id, device_display_names(), undefined) of
+        undefined ->
+            case binary:split(Id, <<"@">>) of
+                [Name, _Version] -> device_display_title(Name);
                 _ ->
-                    Id
-            end
+                    case Id of
+                        <<C, Rest/binary>> ->
+                            <<(string:uppercase(<<C>>))/binary, Rest/binary>>;
+                        _ ->
+                            Id
+                    end
+            end;
+        Title ->
+            Title
     end.
 
 device_tint_class(Label) ->
@@ -2799,8 +2804,8 @@ schema_rows(DeviceID, Schema, Order) ->
             undefined -> [];
             KeySchema ->
                 [
-                    <<"<tr><td><a href=\"/~">>, esc(DeviceID), <<"/info/schema/">>,
-                    esc(Name),
+                    <<"<tr><td><a href=\"">>,
+                    esc(device_schema_key_path(DeviceID, Name)),
                     <<"\">">>, esc(Name), <<"</a></td><td>">>,
                     esc(maps:get(<<"description">>, KeySchema, <<>>)),
                     <<"</td><td>">>,
@@ -2919,11 +2924,9 @@ first_recipe_icon_match([{Keyword, Icon} | Rest], Text) ->
 
 recipe_icon_markup(Slug, Recipe) ->
     Icon = recipe_icon_name(Slug, maps:get(<<"title">>, Recipe, Slug)),
-    Path = maps:get(Icon, recipe_icon_paths()),
     [
         <<"<div class=\"hb-docs-recipe-card-icon\" aria-hidden=\"true\">">>,
-        <<"<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" focusable=\"false\">">>,
-        <<"<path d=\"">>, Path, <<"\"></path></svg>">>,
+        phosphor_icon_path_svg(Icon),
         <<"</div>">>
     ].
 
@@ -3086,8 +3089,9 @@ params_table(DeviceID, Key, Params) ->
             "<th>Description</th><th>Example</th></tr></thead><tbody>">>,
         [
             [
-                <<"<tr><td><a href=\"/~">>, esc(DeviceID), <<"/info/schema/">>,
-                esc(Key), <<"/">>, esc(Name), <<"\"><code>">>, esc(Name),
+                <<"<tr><td><a href=\"">>,
+                esc(device_schema_param_path(DeviceID, Key, Name)),
+                <<"\"><code>">>, esc(Name),
                 <<"</code></a></td><td>">>,
                 param_required_cell(DeviceID, Key, Name, Param),
                 <<"</td><td>">>, esc(maps:get(<<"type">>, Param, <<>>)),
