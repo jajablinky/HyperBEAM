@@ -15,6 +15,17 @@ corpus used by HyperBEAM's prototype `cookbook@1.0` renderer.
 Do not reintroduce a hardcoded `/home/fn/Dev/device-docs` dependency. The
 runtime default is this packaged folder via `code:priv_dir(hb)`.
 
+## Dev Server
+
+From the HyperBEAM repo root, use the guarded wrapper (avoids overlapping
+`rebar3 shell` instances on port 8734):
+
+```bash
+./scripts/dev-server.sh start   # skip if already up
+./scripts/dev-server.sh status
+./scripts/dev-server.sh restart # after hb_docs / compile changes
+```
+
 ## Editing Workflow
 
 From this directory:

@@ -90,8 +90,48 @@
   --text-caption: clamp(0.75rem, 0.85vw, 0.8125rem);
   --text-code: clamp(0.8125rem, 0.95vw, 0.875rem);
 
+  --shadow-xs: 0 1px 2px 0 var(--shadow-soft);
   --shadow-sm: 0 1px 5px 0 var(--shadow-soft);
   --shadow-lg: 0 3.5px 7.5px 0 var(--shadow-soft);
+
+  /* Brand palette — parameter tags */
+  --brand-red: #cd0d34;
+  --brand-coral: #fd9069;
+  --brand-lime: #d3ff8c;
+  --brand-blue: #0072c8;
+  --brand-pink-soft: #ffcdcd;
+  --brand-mint-soft: #cdffd9;
+  --brand-lavender-soft: #bdc9ff;
+  --brand-sky-soft: #cdeeff;
+  --brand-coral-soft: #ffe8dc;
+  --brand-lime-soft: #efffd4;
+
+  --tag-required-fg: #e25656;
+  --tag-required-bg: #fff0f0;
+  --tag-required-border: transparent;
+  --tag-optional-fg: var(--pill-tone-3-fg);
+  --tag-optional-bg: var(--brand-lime-soft);
+  --tag-optional-border: transparent;
+  --tag-accent-fg: var(--brand-blue);
+  --tag-accent-bg: var(--brand-lavender-soft);
+
+  --pill-tone-0-fg: var(--brand-red);
+  --pill-tone-1-fg: var(--brand-coral);
+  --pill-tone-2-fg: var(--brand-blue);
+  --pill-tone-3-fg: #6b8f1a;
+  --pill-tone-4-fg: #2d8a5c;
+  --pill-tone-5-fg: #2d8a5c;
+  --pill-tone-6-fg: #4a56b8;
+  --pill-tone-7-fg: #2a7db5;
+}
+
+.eyebrow {
+  margin: 0 0 0.5rem;
+  color: var(--text-tertiary);
+  font-size: var(--text-caption);
+  font-weight: 400;
+  line-height: 1.25;
+  letter-spacing: 0;
 }
 
 [data-theme='dark'] {
@@ -1338,6 +1378,14 @@ body.close .content {
   padding-left: 1.5em;
 }
 
+.markdown-section ol {
+  padding-left: 2.35em;
+}
+
+.markdown-section ol > li {
+  padding-inline-start: 0.45em;
+}
+
 .markdown-section li {
   margin: 0.5rem 0;
 }
@@ -1352,12 +1400,21 @@ body.close .content {
   text-decoration: underline !important;
   text-underline-offset: 2px;
   text-decoration-color: color-mix(in oklab, var(--text) 35%, transparent);
-  transition: color 100ms ease;
+  transition: color 100ms ease, opacity 100ms ease;
 }
 
 .markdown-section a:hover {
   color: var(--text) !important;
   text-decoration-color: var(--text) !important;
+  opacity: 0.72;
+}
+
+.markdown-section a.anchor:hover,
+.markdown-section .hb-docs-section-index a:hover,
+.markdown-section a.hb-docs-card:hover,
+.markdown-section a.hb-docs-guide-list-link:hover,
+.markdown-section a.docs-footer-link:hover {
+  opacity: 1;
 }
 
 .markdown-section a.anchor {
@@ -2628,7 +2685,7 @@ body.hb-runner-open {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px var(--hb-runner-inset) 0;
+  padding: 10px var(--hb-runner-inset) 0;
 }
 
 .hb-runner-codec-row[hidden] {
@@ -2643,21 +2700,51 @@ body.hb-runner-open {
 }
 
 .hb-runner-codec-select {
-  min-height: 30px;
-  padding: 0 30px 0 10px;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 220px;
+  min-height: 32px;
+  padding: 0 32px 0 12px;
   border: 1px solid var(--border);
   border-radius: var(--sidebar-link-radius);
-  background: var(--bg);
+  background-color: var(--bg);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath fill='%23737373' d='M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 12px 12px;
   color: var(--text);
   font-family: var(--font-sans);
-  font-size: var(--text-caption);
+  font-size: var(--text-ui);
   font-weight: 500;
+  line-height: 1.25;
+  cursor: pointer;
   outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  transition: border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
 }
 
-.hb-runner-codec-select:focus {
+.hb-runner-codec-select:hover {
+  border-color: var(--border-strong);
+}
+
+.hb-runner-codec-select:focus,
+.hb-runner-codec-select:focus-visible {
   border-color: var(--border-strong);
   box-shadow: 0 0 0 2px color-mix(in oklab, var(--text) 8%, transparent);
+}
+
+.hb-runner-codec-select option {
+  color: var(--text);
+  background: var(--bg);
+  font-family: var(--font-sans);
+  font-size: var(--text-ui);
+  font-weight: 500;
+}
+
+[data-theme='dark'] .hb-runner-codec-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath fill='%238f8f8f' d='M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z'/%3E%3C/svg%3E");
 }
 
 .hb-runner-codec-help {
@@ -2688,7 +2775,7 @@ body.hb-runner-open {
   content: attr(data-tip);
   position: absolute;
   left: 50%;
-  bottom: calc(100% + 8px);
+  top: calc(100% + 8px);
   z-index: 2;
   width: min(280px, 70vw);
   padding: 8px 10px;
@@ -2703,7 +2790,7 @@ body.hb-runner-open {
   box-shadow: var(--shadow-lg);
   opacity: 0;
   pointer-events: none;
-  transform: translate(-50%, 4px);
+  transform: translate(-50%, -4px);
   transition: opacity 120ms ease, transform 120ms ease;
 }
 
@@ -2888,25 +2975,29 @@ body.hb-runner-open {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  padding: 3px;
+  padding: 0;
   border-radius: 999px;
   background: var(--bg-muted);
+  min-height: 28px;
+  box-sizing: border-box;
 }
 
 .hb-runner-run-tabs .hb-runner-tab {
-  min-height: 24px;
-  padding: 0 10px;
+  min-height: 28px;
+  padding: 0 12px;
+  line-height: 1;
 }
 
 .hb-runner-run-tabs .hb-runner-tab:hover:not(.is-active) {
   background: color-mix(in oklab, var(--text) 6%, transparent);
   color: var(--text);
+  box-shadow: var(--shadow-xs);
 }
 
 .hb-runner-run-tabs .hb-runner-tab.is-active {
   background: var(--bg);
   color: var(--text);
-  box-shadow: none;
+  box-shadow: var(--shadow-sm);
 }
 
 .hb-runner-run-tabs[hidden] {
@@ -3107,17 +3198,19 @@ body.hb-runner-open {
   font-size: var(--text-caption);
   font-weight: 500;
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
+  transition: background 120ms ease, color 120ms ease, box-shadow 120ms ease;
 }
 
-.hb-runner-tab:hover {
+.hb-runner-tab:hover:not(.is-active) {
   background: var(--bg-hover);
   color: var(--text);
+  box-shadow: var(--shadow-xs);
 }
 
 .hb-runner-tab.is-active {
   background: var(--sidebar-link-active-bg);
   color: var(--text);
+  box-shadow: var(--shadow-sm);
 }
 
 .hb-output-entry {

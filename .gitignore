@@ -22,6 +22,7 @@ logs
 rebar3.crashdump
 *~
 /venv
+.hyperbeam-dev-server.*
 
 *.json
 !.vscode/*
