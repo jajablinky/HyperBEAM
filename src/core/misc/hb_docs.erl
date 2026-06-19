@@ -2247,14 +2247,17 @@ body.hb-docs-protocol .sidebar-viewing-back.is-active {
 .pill {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   min-height: 22px;
-  padding: 0 8px;
+  padding: 5px 8px;
   margin: 0 4px 4px 0;
   border: 1px solid transparent;
   border-radius: 999px;
   font-size: var(--text-caption);
   font-weight: 400;
-  line-height: 1.3;
+  line-height: 1.35;
+  text-align: center;
+  text-wrap: balance;
 }
 .pill-required {
   border-color: transparent;
