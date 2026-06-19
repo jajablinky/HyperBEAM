@@ -11,6 +11,7 @@
 -define(MESSAGE_DEVICE, <<"message@1.0">>).
 -define(COOKBOOK_DEVICE, <<"cookbook@1.0">>).
 -define(PACKAGED_DEVICE_DOCS_ROOT, ["docs", "cookbook", "device-docs"]).
+-define(SIDEBAR_DEVICES_MAX, 5).
 
 %% @doc Return true when an inbound request addresses node-root `/info`.
 is_node_info_request([Base, Req], Opts) when is_map(Base), is_map(Req) ->
@@ -76,6 +77,10 @@ node_info_route([<<"schema">>], Req, Opts) ->
     Data = node_info_data(Opts),
     Payload = node_component_index(<<"node-schema-index">>, <<"schema">>, Data),
     respond_html_or_json(node_schema, Payload, Payload, Req);
+node_info_route([<<"devices">>], Req, Opts) ->
+    Data = node_info_data(Opts),
+    Payload = maps:merge(Data, #{<<"kind">> => <<"node-devices-index">>}),
+    respond_html_or_json(node_devices, Payload, Payload, Req);
 node_info_route([<<"spec">>], Req, Opts) ->
     Data = node_info_data(Opts),
     Payload = node_component_index(<<"node-spec-index">>, <<"spec">>, Data),
@@ -460,6 +465,8 @@ html_response(implementations, Data) ->
     html_doc_response(render_implementations_html(Data));
 html_response(node_schema, Data) ->
     html_doc_response(render_node_component_html(<<"Schema">>, <<"/info/schema">>, Data));
+html_response(node_devices, Data) ->
+    html_doc_response(render_node_devices_html(Data));
 html_response(node_spec, Data) ->
     html_doc_response(render_node_component_html(<<"Spec">>, <<"/info/spec">>, Data));
 html_response(node_recipes, Data) ->
@@ -1503,6 +1510,21 @@ render_node_component_html(Title, ActivePath, Data) ->
         <<"HyperBEAM Node Index">>, ActivePath, node_sidebar_from_component(Devices, ActivePath), Content
     ).
 
+render_node_devices_html(Data) ->
+    Devices = maps:get(<<"devices">>, Data, []),
+    Content =
+        [
+            <<"<p class=\"eyebrow\">Node</p><h1>Devices</h1><p>">>,
+            esc(maps:get(<<"summary">>, Data, <<"All devices available on this node.">>)),
+            <<"</p>">>,
+            <<"<div class=\"hb-docs-device-grid\">">>,
+            [device_row(Device) || Device <- Devices],
+            <<"</div>">>
+        ],
+    docs_page_html(
+        <<"HyperBEAM Devices">>, devices_index_path(), node_sidebar(Devices, devices_index_path()), Content
+    ).
+
 render_node_boilerplate_html(Data) ->
     Content =
         [
@@ -2444,7 +2466,7 @@ device_doc_link_fields(DeviceID) ->
     }.
 
 devices_index_path() ->
-    <<"/info/schema">>.
+    <<"/info/devices">>.
 
 active_path_match(ActivePath, Href) when is_binary(ActivePath), is_binary(Href) ->
     ActivePath =:= Href.
@@ -2608,6 +2630,14 @@ boilerplate_section_order() ->
     ].
 
 node_sidebar_devices_section(Devices, ActivePath) ->
+    VisibleDevices = sidebar_devices_preview(Devices),
+    ViewAll =
+        case length(Devices) > ?SIDEBAR_DEVICES_MAX of
+            true ->
+                [sidebar_li(ActivePath, devices_index_path(), <<"View all devices">>)];
+            false ->
+                []
+        end,
     [
         <<"<li class=\"sidebar-flat-links\"><p>Devices</p><ul>">>,
         [
@@ -2616,10 +2646,19 @@ node_sidebar_devices_section(Devices, ActivePath) ->
                 maps:get(<<"href">>, Device),
                 esc(device_marked_id(device_card_label(Device)))
             )
-        || Device <- Devices
+        || Device <- VisibleDevices
         ],
+        ViewAll,
         <<"</ul></li>">>
     ].
+
+sidebar_devices_preview(Devices) ->
+    lists:sublist(Devices, min(length(Devices), ?SIDEBAR_DEVICES_MAX)).
+
+prototype_overflow_device() ->
+    prototype_node_device(
+        <<"overflow@1.0">>, <<"overflow">>, <<"1.0">>, <<"Overflow device for sidebar tests.">>
+    ).
 
 index_section_li_open(ActivePath) ->
     NodeIndexPaths = [Href || {Href, _} <- node_sidebar_index_items()],
@@ -4992,7 +5031,7 @@ schema_key_route_test() ->
     ?assert(binary:match(Body, <<"data-active-path=\"/~message@1.0/info/schema/field\"">>) =/= nomatch),
     ?assert(binary:match(Body, <<"<p class=\"eyebrow\">You are viewing</p>">>) =/= nomatch),
     ?assert(binary:match(Body, <<"sidebar-viewing-device\" href=\"/~message@1.0/info\">~message@1.0</a>">>) =/= nomatch),
-    ?assert(binary:match(Body, <<"sidebar-viewing-back\" href=\"/info/schema\">">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"sidebar-viewing-back\" href=\"/info/devices\">">>) =/= nomatch),
     ?assert(binary:match(Body, <<"sidebar-viewing-back-icon">>) =/= nomatch),
     ?assert(binary:match(Body, <<"View All Devices</a>">>) =/= nomatch),
     ?assert(binary:match(Body, <<"View All Node Info</a>">>) =/= nomatch),
@@ -5204,13 +5243,11 @@ boilerplate_routes_test() ->
     ?assertEqual(nomatch, binary:match(IntroBody, <<"(what-is-hyperbeam.md)">>)),
     {ok, GuidesHTML} = node_info_route([<<"boilerplate">>], #{ <<"accept">> => <<"text/html">> }, #{}),
     GuidesBody = maps:get(<<"body">>, GuidesHTML),
-    ?assert(binary:match(GuidesBody, <<"hb-docs-recipe-card-title\">Device Recipe Format</strong>">>) =/= nomatch),
-    ?assert(binary:match(GuidesBody, <<"hb-docs-recipe-card-title\">Create A Device</strong>">>) =/= nomatch),
-    ?assert(binary:match(GuidesBody, <<"hb-docs-recipe-card-cta\">Open &rarr;</span>">>) =/= nomatch),
-    ?assertEqual(nomatch, binary:match(GuidesBody, <<"Merged from the HyperBEAM">>)),
-    ?assert(binary:match(GuidesBody, <<"The HTTP-native protocol for decentralized computation">>) =/= nomatch),
-    ?assert(binary:match(GuidesBody, <<"hb-docs-reference-item">>) =/= nomatch),
-    ?assert(binary:match(GuidesBody, <<"Shared terms for messages, devices, Hyperpaths">>) =/= nomatch).
+    ?assert(binary:match(GuidesBody, <<"hb-docs-guide-index">>) =/= nomatch),
+    ?assert(binary:match(GuidesBody, <<"Device Recipe Format">>) =/= nomatch),
+    ?assert(binary:match(GuidesBody, <<"Create A Device">>) =/= nomatch),
+    ?assertEqual(nomatch, binary:match(GuidesBody, <<"hb-docs-recipe-card-cta\">Open &rarr;</span>">>)),
+    ?assertEqual(nomatch, binary:match(GuidesBody, <<"Merged from the HyperBEAM">>)).
 
 cookbook_device_contract_test() ->
     Data = device_info_data(?COOKBOOK_DEVICE, #{}),
@@ -5247,13 +5284,21 @@ device_card_label_test() ->
     ?assertEqual(<<"~arweave@2.9">>, device_marked_id(<<"arweave@2.9">>)),
     ?assertEqual(<<"~message@1.0">>, device_marked_id(<<"message@1.0">>)),
     ?assertEqual(<<"~arweave@2.9">>, device_marked_id(<<"~arweave@2.9">>)),
+    ?assertEqual(3, length(sidebar_devices_preview(lists:duplicate(3, #{})))),
+    ?assertEqual(5, length(sidebar_devices_preview(lists:duplicate(8, #{})))),
+    OverflowNav = iolist_to_binary(node_sidebar_devices_section(lists:duplicate(6, prototype_overflow_device()), <<"/info">>)),
+    ?assert(binary:match(OverflowNav, <<"View all devices">>) =/= nomatch),
+    ?assert(binary:match(OverflowNav, <<"href=\"/info/devices\"">>) =/= nomatch),
     Msgs = hb_singleton:from(#{ <<"path">> => <<"/info">> }, #{}),
     Req = #{ <<"accept">> => <<"text/html">> },
     {true, {ok, HTML}} = maybe_info_request(Msgs, Req, #{}),
     Body = maps:get(<<"body">>, HTML),
     ?assert(binary:match(Body, <<"hb-docs-device-card-id\">~arweave@2.9</span>">>) =/= nomatch),
     ?assert(binary:match(Body, <<"hb-docs-device-card-id\">~message@1.0</span>">>) =/= nomatch),
-    ?assertEqual(nomatch, binary:match(Body, <<"hb-docs-device-card-header">>)).
+    ?assertEqual(nomatch, binary:match(Body, <<"hb-docs-device-card-header">>)),
+    {ok, DevicesHTML} = node_info_route([<<"devices">>], #{ <<"accept">> => <<"text/html">> }, #{}),
+    ?assert(binary:match(maps:get(<<"body">>, DevicesHTML), <<"hb-docs-device-grid">>) =/= nomatch),
+    ?assert(binary:match(maps:get(<<"body">>, DevicesHTML), <<"~arweave@2.9">>) =/= nomatch).
 
 docs_asset_route_test() ->
     Msgs = [
