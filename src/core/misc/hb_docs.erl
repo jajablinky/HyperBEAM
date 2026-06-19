@@ -1939,7 +1939,7 @@ body.hb-docs-protocol .sidebar-viewing-back.is-active {
 .hb-docs-device-card {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 6px;
   padding: 0;
   border: none;
   border-radius: 0;
@@ -1949,46 +1949,30 @@ body.hb-docs-protocol .sidebar-viewing-back.is-active {
 }
 .hb-docs-device-card:hover {
   background: transparent;
-  opacity: 0.92;
 }
-.hb-docs-device-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 120px;
-  padding: 16px;
-  border-radius: 16px;
+.hb-docs-device-tint-0 {
+  --device-card-accent: #c45c68;
 }
-.hb-docs-device-gradient-0 {
-  background: linear-gradient(135deg, var(--brand-red) 0%, var(--brand-coral) 100%);
+.hb-docs-device-tint-1 {
+  --device-card-accent: #2a7db5;
 }
-.hb-docs-device-gradient-1 {
-  background: linear-gradient(125deg, var(--brand-red) 0%, var(--brand-blue) 100%);
+.hb-docs-device-tint-2 {
+  --device-card-accent: #d46a42;
 }
-.hb-docs-device-gradient-2 {
-  background: linear-gradient(140deg, var(--brand-coral) 0%, var(--brand-red) 100%);
+.hb-docs-device-tint-3 {
+  --device-card-accent: #4a56b8;
 }
-.hb-docs-device-gradient-3 {
-  background: linear-gradient(130deg, var(--brand-blue) 0%, var(--brand-red) 100%);
+.hb-docs-device-tint-4 {
+  --device-card-accent: #2d8a5c;
 }
-.hb-docs-device-gradient-4 {
-  background: linear-gradient(145deg, var(--brand-blue) 0%, var(--brand-coral) 100%);
+.hb-docs-device-tint-5 {
+  --device-card-accent: #6b8f1a;
 }
-.hb-docs-device-gradient-5 {
-  background: linear-gradient(120deg, var(--brand-coral) 0%, var(--brand-blue) 100%);
+.hb-docs-device-tint-6 {
+  --device-card-accent: #0072c8;
 }
-.hb-docs-device-gradient-6 {
-  background: linear-gradient(150deg, var(--brand-red) 0%, var(--brand-lime) 100%);
-}
-.hb-docs-device-gradient-7 {
-  background: linear-gradient(135deg, var(--brand-blue) 0%, var(--brand-lime) 100%);
-}
-.hb-docs-device-card-label {
-  font-size: 1.05rem;
-  font-weight: 600;
-  color: #fff;
-  text-align: center;
-  letter-spacing: -0.02em;
+.hb-docs-device-tint-7 {
+  --device-card-accent: #c75a38;
 }
 .hb-docs-device-card-body {
   display: flex;
@@ -1997,7 +1981,7 @@ body.hb-docs-protocol .sidebar-viewing-back.is-active {
 }
 .hb-docs-device-card-title-row {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   flex-wrap: wrap;
   gap: 8px;
 }
@@ -2006,15 +1990,11 @@ body.hb-docs-protocol .sidebar-viewing-back.is-active {
   font-weight: 700;
   color: var(--text);
 }
-.hb-docs-device-card-badge {
-  display: inline-flex;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--tag-accent-bg);
-  color: var(--tag-accent-fg);
-  font-size: 0.7rem;
+.hb-docs-device-card-id {
+  font-size: var(--text-ui);
   font-weight: 600;
-  line-height: 1.4;
+  color: var(--device-card-accent, var(--text-secondary));
+  letter-spacing: -0.02em;
 }
 .hb-docs-device-card-desc {
   font-size: var(--text-caption);
@@ -2630,23 +2610,21 @@ device_row(Device) ->
     Label = device_card_label(Device),
     Title = device_card_title(Device),
     Summary = device_card_summary_text(Device),
-    GradientClass = device_gradient_class(Label),
+    TintClass = device_tint_class(Label),
     [
         <<"<a class=\"hb-docs-device-card\" href=\"">>,
         esc(device_card_href(Device)),
         <<"\">">>,
-        <<"<div class=\"hb-docs-device-card-header ">>,
-        GradientClass,
-        <<"\">">>,
-        <<"<span class=\"hb-docs-device-card-label\">">>,
-        esc(Label),
-        <<"</span></div>">>,
         <<"<div class=\"hb-docs-device-card-body\">">>,
-        <<"<div class=\"hb-docs-device-card-title-row\">">>,
+        <<"<div class=\"hb-docs-device-card-title-row ">>,
+        TintClass,
+        <<"\">">>,
         <<"<strong class=\"hb-docs-device-card-title\">">>,
         esc(Title),
         <<"</strong>">>,
-        device_card_badge_markup(Device),
+        <<"<span class=\"hb-docs-device-card-id\">">>,
+        esc(device_marked_id(Label)),
+        <<"</span>">>,
         <<"</div>">>,
         <<"<span class=\"hb-docs-device-card-desc\">">>,
         esc(card_summary(Summary)),
@@ -2667,6 +2645,12 @@ device_card_label(#{<<"device">> := Id}) ->
 device_card_label(Device) ->
     <<(maps:get(<<"name">>, Device))/binary, "@",
         (maps:get(<<"version">>, Device))/binary>>.
+
+device_marked_id(Label) when is_binary(Label) ->
+    case Label of
+        <<$~, _/binary>> -> Label;
+        _ -> <<$~, Label/binary>>
+    end.
 
 device_card_href(Device) ->
     maps:get(<<"href">>, Device, <<>>).
@@ -2695,16 +2679,9 @@ device_display_title(Id) when is_binary(Id) ->
             end
     end.
 
-device_gradient_class(Label) ->
+device_tint_class(Label) ->
     Index = erlang:phash2(Label) rem 8,
-    <<"hb-docs-device-gradient-", (integer_to_binary(Index))/binary>>.
-
-device_card_badge_markup(#{<<"name">> := <<"cookbook">>}) ->
-    <<"<span class=\"hb-docs-device-card-badge\">Prototype</span>">>;
-device_card_badge_markup(#{<<"device">> := <<"cookbook@1.0">>}) ->
-    <<"<span class=\"hb-docs-device-card-badge\">Prototype</span>">>;
-device_card_badge_markup(_) ->
-    <<>>.
+    <<"hb-docs-device-tint-", (integer_to_binary(Index))/binary>>.
 
 boilerplate_section_cards(Index, Heading) ->
     [
@@ -5134,6 +5111,18 @@ recipe_card_icons_test() ->
     PackagePath = maps:get(<<"package">>, recipe_icon_paths()),
     ?assert(binary:match(Body, PackagePath) =/= nomatch),
     ?assertEqual(6, length([1 || {Slug, _} <- maps:to_list(arweave_recipes()), binary:match(Body, Slug) =/= nomatch])).
+
+device_card_label_test() ->
+    ?assertEqual(<<"~arweave@2.9">>, device_marked_id(<<"arweave@2.9">>)),
+    ?assertEqual(<<"~message@1.0">>, device_marked_id(<<"message@1.0">>)),
+    ?assertEqual(<<"~arweave@2.9">>, device_marked_id(<<"~arweave@2.9">>)),
+    Msgs = hb_singleton:from(#{ <<"path">> => <<"/info">> }, #{}),
+    Req = #{ <<"accept">> => <<"text/html">> },
+    {true, {ok, HTML}} = maybe_info_request(Msgs, Req, #{}),
+    Body = maps:get(<<"body">>, HTML),
+    ?assert(binary:match(Body, <<"hb-docs-device-card-id\">~arweave@2.9</span>">>) =/= nomatch),
+    ?assert(binary:match(Body, <<"hb-docs-device-card-id\">~message@1.0</span>">>) =/= nomatch),
+    ?assertEqual(nomatch, binary:match(Body, <<"hb-docs-device-card-header">>)).
 
 docs_asset_route_test() ->
     Msgs = [

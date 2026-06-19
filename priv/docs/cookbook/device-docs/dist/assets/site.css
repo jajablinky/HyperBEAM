@@ -94,7 +94,7 @@
   --shadow-sm: 0 1px 5px 0 var(--shadow-soft);
   --shadow-lg: 0 3.5px 7.5px 0 var(--shadow-soft);
 
-  /* Brand palette — parameter tags & device card gradients */
+  /* Brand palette — parameter tags */
   --brand-red: #cd0d34;
   --brand-coral: #fd9069;
   --brand-lime: #d3ff8c;
@@ -106,8 +106,8 @@
   --brand-coral-soft: #ffe8dc;
   --brand-lime-soft: #efffd4;
 
-  --tag-required-fg: var(--brand-red);
-  --tag-required-bg: var(--brand-pink-soft);
+  --tag-required-fg: #e25656;
+  --tag-required-bg: #fff0f0;
   --tag-required-border: transparent;
   --tag-optional-fg: var(--pill-tone-3-fg);
   --tag-optional-bg: var(--brand-lime-soft);
